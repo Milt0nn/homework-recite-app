@@ -792,6 +792,15 @@ textarea {
     <div class="grid-controls">
       <select id="bookSelector"></select>
     </div>
+    <div id="currentLessonControl" style="display: none; margin-bottom: 10px;">
+      <div class="card" style="padding: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+        <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary); white-space: nowrap;">目前最新課數</span>
+        <button class="btn btn-sm btn-outline" id="curLessonMinus">−</button>
+        <span id="curLessonDisplay" style="font-size: 16px; font-weight: 700; min-width: 60px; text-align: center;"></span>
+        <button class="btn btn-sm btn-outline" id="curLessonPlus">＋</button>
+        <span id="curLessonTotal" style="font-size: 12px; color: var(--text-muted);"></span>
+      </div>
+    </div>
     <div id="gridArea"></div>
   </section>
 
@@ -1427,6 +1436,48 @@ $$('#tab-checkin .sub-tab').forEach(t => {
 $('#bookSelector').addEventListener('change', (e) => {
   state.activeBookId = e.target.value;
   saveState();
+  updateCurrentLessonControl();
+  renderGrid();
+});
+
+function updateCurrentLessonControl() {
+  const book = getActiveBook();
+  const ctrl = $('#currentLessonControl');
+  if (!book) { ctrl.style.display = 'none'; return; }
+  if (book.currentLesson === undefined) book.currentLesson = 0;
+  ctrl.style.display = '';
+  const cur = book.currentLesson > 0 ? book.currentLesson : book.totalLessons;
+  $('#curLessonDisplay').textContent = '第 ' + cur + ' 課';
+  $('#curLessonTotal').textContent = '/ 共 ' + book.totalLessons + ' 課' +
+    (book.currentLesson > 0 ? '' : '（未限制）');
+}
+
+$('#curLessonMinus').addEventListener('click', () => {
+  const book = getActiveBook();
+  if (!book) return;
+  const cur = book.currentLesson > 0 ? book.currentLesson : book.totalLessons;
+  if (cur <= 1) return;
+  book.currentLesson = cur - 1;
+  saveState();
+  updateCurrentLessonControl();
+  renderGrid();
+});
+
+$('#curLessonPlus').addEventListener('click', () => {
+  const book = getActiveBook();
+  if (!book) return;
+  const cur = book.currentLesson > 0 ? book.currentLesson : book.totalLessons;
+  if (cur >= book.totalLessons) {
+    book.currentLesson = 0;
+    saveState();
+    updateCurrentLessonControl();
+    renderGrid();
+    return;
+  }
+  book.currentLesson = cur + 1;
+  if (book.currentLesson >= book.totalLessons) book.currentLesson = 0;
+  saveState();
+  updateCurrentLessonControl();
   renderGrid();
 });
 
@@ -1444,6 +1495,7 @@ function renderCheckin() {
     sel.appendChild(el('option', { value: '' }, '請先新增班級'));
     $('#gridArea').innerHTML = '';
     $('#gridArea').appendChild(emptyState('🏫', '請至「設定」新增班級'));
+    $('#currentLessonControl').style.display = 'none';
     return;
   }
 
@@ -1453,6 +1505,7 @@ function renderCheckin() {
     $('#gridArea').innerHTML = '';
     const typeName = state.activeBookType === 'recitation' ? '背誦項目' : '功課項目';
     $('#gridArea').appendChild(emptyState('📚', `請至「設定」新增${typeName}`));
+    $('#currentLessonControl').style.display = 'none';
     return;
   }
 
@@ -1465,6 +1518,7 @@ function renderCheckin() {
     state.activeBookId = books[0].id;
   }
   sel.value = state.activeBookId;
+  updateCurrentLessonControl();
 
   if (cls.students.length === 0) {
     $('#gridArea').innerHTML = '';
