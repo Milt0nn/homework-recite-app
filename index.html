@@ -1,0 +1,1778 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#4CAF50">
+<title>功課背誦登記</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root {
+  --bg-primary: #f5f7fa;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-hover: #f0f0f0;
+  --text-primary: #1a1a1a;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+  --border-color: #e0e0e0;
+  --border-strong: #c0c0c0;
+  --accent: #4CAF50;
+  --accent-hover: #45a049;
+  --accent-light: #e8f5e9;
+  --danger: #f44336;
+  --danger-light: #ffebee;
+  --warning: #ff9800;
+  --warning-light: #fff3e0;
+  --info: #2196F3;
+  --info-light: #e3f2fd;
+  --check-done: #4CAF50;
+  --check-done-text: #ffffff;
+  --check-empty: #ffffff;
+  --check-border: #d0d0d0;
+  --shadow: 0 2px 4px rgba(0,0,0,0.08);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.12);
+  --header-height: 56px;
+  --tabbar-height: 64px;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #121212;
+  --bg-secondary: #1e1e1e;
+  --bg-card: #242424;
+  --bg-hover: #2d2d2d;
+  --text-primary: #e8e8e8;
+  --text-secondary: #b0b0b0;
+  --text-muted: #707070;
+  --border-color: #3a3a3a;
+  --border-strong: #505050;
+  --accent: #66BB6A;
+  --accent-hover: #81C784;
+  --accent-light: #1b3a1d;
+  --danger: #ef5350;
+  --danger-light: #3a1a1a;
+  --warning: #ffa726;
+  --warning-light: #3a2a1a;
+  --info: #42A5F5;
+  --info-light: #1a2a3a;
+  --check-done: #66BB6A;
+  --check-done-text: #ffffff;
+  --check-empty: #2a2a2a;
+  --check-border: #505050;
+  --shadow: 0 2px 4px rgba(0,0,0,0.3);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", "Heiti TC", sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 16px;
+  line-height: 1.5;
+  overscroll-behavior: none;
+  transition: background 0.2s, color 0.2s;
+}
+
+body {
+  padding-top: var(--header-height);
+  padding-bottom: var(--tabbar-height);
+  min-height: 100vh;
+}
+
+button {
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+input, select, textarea {
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 12px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--accent);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 100px;
+  line-height: 1.6;
+}
+
+/* ============ Header ============ */
+.app-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-height);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 8px;
+  z-index: 100;
+  box-shadow: var(--shadow);
+}
+
+.app-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.class-selector {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.icon-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.icon-btn:hover, .icon-btn:active {
+  background: var(--bg-hover);
+}
+
+/* ============ Bottom Tabs ============ */
+.tab-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--tabbar-height);
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -2px 4px rgba(0,0,0,0.05);
+}
+
+.tab-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 6px 4px;
+  transition: color 0.15s;
+}
+
+.tab-btn .tab-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.tab-btn.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ============ Main Content ============ */
+.tab-section {
+  display: none;
+  padding: 12px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.tab-section.active {
+  display: block;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 12px 0;
+  color: var(--text-primary);
+}
+
+.subsection-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 16px 0 8px 0;
+  color: var(--text-secondary);
+}
+
+/* ============ Cards ============ */
+.card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border-color);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.card-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* ============ Buttons ============ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  transition: all 0.15s;
+  min-height: 40px;
+}
+
+.btn:hover, .btn:active {
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+}
+
+.btn-outline {
+  background: transparent;
+}
+
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 13px;
+  min-height: 32px;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ============ Form ============ */
+.form-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  align-items: stretch;
+}
+
+.form-row > * {
+  flex: 1;
+  min-width: 0;
+}
+
+.form-row > .btn {
+  flex: 0 0 auto;
+}
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ============ Lists ============ */
+.list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  gap: 8px;
+}
+
+.list-item-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list-item-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--info-light);
+  color: var(--info);
+}
+
+.badge-recitation {
+  background: var(--warning-light);
+  color: var(--warning);
+}
+
+/* ============ Sub-tabs ============ */
+.sub-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-card);
+  padding: 4px;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.sub-tab {
+  flex: 1;
+  padding: 8px;
+  text-align: center;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+}
+
+.sub-tab.active {
+  background: var(--accent);
+  color: white;
+}
+
+/* ============ Check-off Grid ============ */
+.grid-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.grid-controls > select {
+  flex: 1;
+  min-width: 120px;
+}
+
+.grid-wrapper {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: auto;
+  max-height: calc(100vh - 260px);
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+}
+
+.check-grid {
+  display: grid;
+  font-size: 13px;
+  min-width: 100%;
+}
+
+.grid-cell {
+  border-bottom: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  min-width: 44px;
+  min-height: 44px;
+  background: var(--bg-card);
+}
+
+.grid-header {
+  background: var(--bg-hover);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  font-size: 12px;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.grid-header .lesson-num {
+  font-weight: 700;
+}
+
+.grid-header .mark-all-btn {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+}
+
+.grid-name-cell {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--bg-card);
+  font-weight: 500;
+  justify-content: flex-start;
+  padding-left: 10px;
+  min-width: 110px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.grid-corner {
+  position: sticky;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  background: var(--bg-hover);
+  font-weight: 700;
+  min-width: 110px;
+}
+
+.grid-name-cell .seat {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-right: 6px;
+  min-width: 18px;
+}
+
+.check-cell {
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.check-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 2px solid var(--check-border);
+  background: var(--check-empty);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: transparent;
+  transition: all 0.1s;
+}
+
+.check-cell.done .check-mark {
+  background: var(--check-done);
+  border-color: var(--check-done);
+  color: var(--check-done-text);
+}
+
+.check-cell:active .check-mark {
+  transform: scale(0.9);
+}
+
+/* ============ Summary Tables ============ */
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.summary-table th, .summary-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.summary-table th {
+  background: var(--bg-hover);
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.summary-table td.col-seat {
+  width: 50px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.summary-table td.col-count {
+  width: 60px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.severity-low {
+  color: var(--accent);
+}
+
+.severity-mid {
+  color: var(--warning);
+}
+
+.severity-high {
+  color: var(--danger);
+}
+
+.summary-empty {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* ============ Empty state ============ */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+.empty-state .empty-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+
+.empty-state-text {
+  font-size: 14px;
+}
+
+/* ============ Modal ============ */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 20px;
+}
+
+.modal-backdrop.active {
+  display: flex;
+}
+
+.modal {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 20px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+}
+
+.modal-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0 0 16px 0;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* ============ Toast ============ */
+.toast {
+  position: fixed;
+  bottom: calc(var(--tabbar-height) + 16px);
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--text-primary);
+  color: var(--bg-primary);
+  padding: 10px 20px;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0;
+  transition: all 0.2s;
+  z-index: 300;
+  pointer-events: none;
+  box-shadow: var(--shadow-lg);
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ============ PDF preview area (hidden) ============ */
+.pdf-render-area {
+  position: absolute;
+  left: -10000px;
+  top: 0;
+  width: 794px;
+  background: white;
+  color: #000;
+  padding: 30px;
+  font-family: "PingFang TC", "Microsoft JhengHei", "Heiti TC", sans-serif;
+}
+
+.pdf-render-area h1 {
+  font-size: 22px;
+  margin: 0 0 4px 0;
+  text-align: center;
+  color: #000;
+}
+
+.pdf-render-area .pdf-meta {
+  text-align: center;
+  font-size: 12px;
+  color: #555;
+  margin-bottom: 16px;
+}
+
+.pdf-render-area h2 {
+  font-size: 16px;
+  margin: 18px 0 8px 0;
+  padding-bottom: 4px;
+  border-bottom: 2px solid #333;
+  color: #000;
+}
+
+.pdf-render-area table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  margin-bottom: 8px;
+  page-break-inside: avoid;
+}
+
+.pdf-render-area table th,
+.pdf-render-area table td {
+  border: 1px solid #888;
+  padding: 4px 6px;
+  text-align: center;
+  color: #000;
+}
+
+.pdf-render-area table th {
+  background: #e8e8e8;
+  font-weight: 700;
+}
+
+.pdf-render-area table td.name {
+  text-align: left;
+  white-space: nowrap;
+}
+
+.pdf-render-area .pdf-check {
+  color: #2e7d32;
+  font-weight: 700;
+}
+
+.pdf-render-area .pdf-miss {
+  color: #c62828;
+}
+
+/* ============ Responsive ============ */
+@media (max-width: 480px) {
+  .app-title {
+    font-size: 15px;
+  }
+  .grid-cell {
+    min-width: 40px;
+    min-height: 40px;
+  }
+  .check-mark {
+    width: 24px;
+    height: 24px;
+    font-size: 16px;
+  }
+  .grid-name-cell, .grid-corner {
+    min-width: 90px;
+    font-size: 12px;
+  }
+}
+
+@media (min-width: 768px) {
+  .tab-section {
+    padding: 20px;
+  }
+}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-title">📚 功課登記</div>
+  <select id="classSelector" class="class-selector"></select>
+  <button id="darkModeBtn" class="icon-btn" title="切換深色模式">🌙</button>
+</header>
+
+<main>
+  <!-- ===== Tab 1: Check-in ===== -->
+  <section id="tab-checkin" class="tab-section active">
+    <h2 class="section-title">登記進度</h2>
+    <div class="sub-tabs">
+      <div class="sub-tab active" data-type="homework">📖 功課</div>
+      <div class="sub-tab" data-type="recitation">🎤 背誦</div>
+    </div>
+    <div class="grid-controls">
+      <select id="bookSelector"></select>
+    </div>
+    <div id="gridArea"></div>
+  </section>
+
+  <!-- ===== Tab 2: Summary ===== -->
+  <section id="tab-summary" class="tab-section">
+    <h2 class="section-title">未完成總覽</h2>
+    <div class="card" style="padding: 10px;">
+      <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <label style="font-size: 13px; color: var(--text-secondary);">
+          <input type="checkbox" id="showAllStudents" style="width: auto; margin-right: 4px;"> 顯示全部學生
+        </label>
+      </div>
+    </div>
+    <div id="summaryArea"></div>
+  </section>
+
+  <!-- ===== Tab 3: Settings ===== -->
+  <section id="tab-settings" class="tab-section">
+    <h2 class="section-title">設定</h2>
+
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">🏫 班級管理</h3>
+      </div>
+      <div class="form-row">
+        <input type="text" id="newClassName" placeholder="班級名稱（例：三年甲班）">
+        <button class="btn btn-primary" id="addClassBtn">新增</button>
+      </div>
+      <div id="classList"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">👥 學生名單</h3>
+        <span id="currentClassLabel" class="list-item-meta"></span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">批次新增（每行一位，格式：座號 姓名）</label>
+        <textarea id="bulkStudentInput" placeholder="1 王小明&#10;2 李小華&#10;3 張小美"></textarea>
+        <div class="form-hint">無座號者會自動依序遞增。已存在的姓名會跳過。</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="addStudentsBtn">新增學生</button>
+        <button class="btn btn-outline" id="clearStudentsBtn">清空名單</button>
+      </div>
+      <div id="studentList" style="margin-top: 12px;"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">📚 作業簿本與背誦教材</h3>
+      </div>
+      <div class="form-group">
+        <label class="form-label">類型</label>
+        <select id="newBookType">
+          <option value="homework">📖 功課</option>
+          <option value="recitation">🎤 背誦</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <input type="text" id="newBookName" placeholder="名稱（例：國語習作）">
+        <input type="number" id="newBookLessons" placeholder="總課數" min="1" max="999" style="max-width: 100px;">
+      </div>
+      <button class="btn btn-primary btn-block" id="addBookBtn" style="margin-top: 8px;">新增項目</button>
+      <div id="bookList" style="margin-top: 12px;"></div>
+    </div>
+  </section>
+
+  <!-- ===== Tab 4: Export ===== -->
+  <section id="tab-export" class="tab-section">
+    <h2 class="section-title">匯出</h2>
+
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">📄 匯出 PDF（A4）</h3>
+      </div>
+      <p class="form-hint" style="margin-bottom: 10px;">將目前班級的完整進度表輸出為 A4 大小 PDF。</p>
+      <button class="btn btn-primary btn-block" id="exportPdfBtn">產生 PDF</button>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">💾 JSON 備份/還原</h3>
+      </div>
+      <p class="form-hint" style="margin-bottom: 10px;">匯出全部資料為 JSON 檔可備份或在其他裝置還原。</p>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="exportJsonBtn">📤 匯出 JSON</button>
+        <button class="btn btn-outline" id="importJsonBtn">📥 匯入 JSON</button>
+        <input type="file" id="importJsonFile" accept=".json" style="display: none;">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title" style="color: var(--danger);">⚠️ 危險區域</h3>
+      </div>
+      <button class="btn btn-danger btn-block" id="resetAllBtn">清除所有資料</button>
+    </div>
+  </section>
+</main>
+
+<nav class="tab-bar">
+  <div class="tab-btn active" data-tab="checkin">
+    <div class="tab-icon">✅</div>
+    <div>登記</div>
+  </div>
+  <div class="tab-btn" data-tab="summary">
+    <div class="tab-icon">📊</div>
+    <div>總覽</div>
+  </div>
+  <div class="tab-btn" data-tab="settings">
+    <div class="tab-icon">⚙️</div>
+    <div>設定</div>
+  </div>
+  <div class="tab-btn" data-tab="export">
+    <div class="tab-icon">📤</div>
+    <div>匯出</div>
+  </div>
+</nav>
+
+<div id="modalBackdrop" class="modal-backdrop">
+  <div class="modal">
+    <h3 class="modal-title" id="modalTitle">確認</h3>
+    <p class="modal-text" id="modalText"></p>
+    <div class="modal-actions">
+      <button class="btn btn-outline" id="modalCancel">取消</button>
+      <button class="btn btn-danger" id="modalConfirm">確定</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+<div id="pdfRenderArea" class="pdf-render-area"></div>
+
+<script>
+'use strict';
+
+// ============ State Management ============
+const STORAGE_KEY = 'hwReciteApp_v1';
+
+const defaultState = () => ({
+  version: 1,
+  darkMode: false,
+  activeClassId: null,
+  activeBookType: 'homework',
+  activeBookId: null,
+  classes: [],
+  books: [],
+  records: {}
+});
+
+let state = loadState();
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultState();
+    const parsed = JSON.parse(raw);
+    return Object.assign(defaultState(), parsed);
+  } catch (e) {
+    console.error('Load failed', e);
+    return defaultState();
+  }
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.error('Save failed', e);
+    showToast('儲存失敗：' + e.message);
+  }
+}
+
+function uid() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
+}
+
+// ============ DOM Helpers ============
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const k in attrs) {
+    if (k === 'class') node.className = attrs[k];
+    else if (k === 'style') node.style.cssText = attrs[k];
+    else if (k.startsWith('on') && typeof attrs[k] === 'function') {
+      node.addEventListener(k.slice(2).toLowerCase(), attrs[k]);
+    } else if (k === 'dataset') {
+      Object.assign(node.dataset, attrs[k]);
+    } else {
+      node.setAttribute(k, attrs[k]);
+    }
+  }
+  for (const c of children) {
+    if (c == null || c === false) continue;
+    node.appendChild(typeof c === 'string' || typeof c === 'number' ? document.createTextNode(c) : c);
+  }
+  return node;
+}
+
+// ============ Toast / Modal ============
+let toastTimer;
+function showToast(msg, duration = 2000) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), duration);
+}
+
+function confirmDialog(title, text) {
+  return new Promise((resolve) => {
+    $('#modalTitle').textContent = title;
+    $('#modalText').textContent = text;
+    const backdrop = $('#modalBackdrop');
+    backdrop.classList.add('active');
+    const cleanup = (val) => {
+      backdrop.classList.remove('active');
+      $('#modalConfirm').onclick = null;
+      $('#modalCancel').onclick = null;
+      backdrop.onclick = null;
+      resolve(val);
+    };
+    $('#modalConfirm').onclick = () => cleanup(true);
+    $('#modalCancel').onclick = () => cleanup(false);
+    backdrop.onclick = (e) => { if (e.target === backdrop) cleanup(false); };
+  });
+}
+
+// ============ Lookups ============
+function getActiveClass() {
+  return state.classes.find(c => c.id === state.activeClassId) || null;
+}
+
+function getBooksForActiveClass(type) {
+  return state.books.filter(b =>
+    b.classId === state.activeClassId && (!type || b.type === type)
+  );
+}
+
+function getActiveBook() {
+  return state.books.find(b => b.id === state.activeBookId) || null;
+}
+
+function recordKey(bookId, lesson, studentId) {
+  return bookId + ':' + lesson + ':' + studentId;
+}
+
+function isDone(bookId, lesson, studentId) {
+  return !!state.records[recordKey(bookId, lesson, studentId)];
+}
+
+function setDone(bookId, lesson, studentId, done) {
+  const k = recordKey(bookId, lesson, studentId);
+  if (done) state.records[k] = true;
+  else delete state.records[k];
+}
+
+// ============ Theme ============
+function applyTheme() {
+  document.documentElement.dataset.theme = state.darkMode ? 'dark' : '';
+  $('#darkModeBtn').textContent = state.darkMode ? '☀️' : '🌙';
+}
+
+$('#darkModeBtn').addEventListener('click', () => {
+  state.darkMode = !state.darkMode;
+  applyTheme();
+  saveState();
+});
+
+// ============ Tab Navigation ============
+function switchTab(name) {
+  $$('.tab-section').forEach(s => s.classList.toggle('active', s.id === 'tab-' + name));
+  $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  if (name === 'checkin') renderCheckin();
+  if (name === 'summary') renderSummary();
+  if (name === 'settings') renderSettings();
+}
+
+$$('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+});
+
+// ============ Class Selector (header) ============
+function renderClassSelector() {
+  const sel = $('#classSelector');
+  sel.innerHTML = '';
+  if (state.classes.length === 0) {
+    sel.appendChild(el('option', { value: '' }, '— 尚無班級，請至設定新增 —'));
+    return;
+  }
+  state.classes.forEach(c => {
+    const opt = el('option', { value: c.id }, c.name + '（' + c.students.length + '人）');
+    sel.appendChild(opt);
+  });
+  if (!state.activeClassId || !state.classes.find(c => c.id === state.activeClassId)) {
+    state.activeClassId = state.classes[0].id;
+  }
+  sel.value = state.activeClassId;
+}
+
+$('#classSelector').addEventListener('change', (e) => {
+  state.activeClassId = e.target.value;
+  state.activeBookId = null;
+  saveState();
+  renderAll();
+});
+
+function renderAll() {
+  renderClassSelector();
+  const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'checkin';
+  switchTab(activeTab);
+}
+
+// ============ Settings Tab ============
+function renderSettings() {
+  renderClassList();
+  renderStudentList();
+  renderBookList();
+  const cls = getActiveClass();
+  $('#currentClassLabel').textContent = cls ? '目前：' + cls.name : '';
+}
+
+function renderClassList() {
+  const cont = $('#classList');
+  cont.innerHTML = '';
+  if (state.classes.length === 0) {
+    cont.appendChild(el('div', { class: 'empty-state-text', style: 'padding: 8px; color: var(--text-muted); font-size: 13px;' }, '尚無班級'));
+    return;
+  }
+  state.classes.forEach(c => {
+    const item = el('div', { class: 'list-item' },
+      el('div', { class: 'list-item-text' },
+        c.name,
+        el('span', { class: 'list-item-meta', style: 'margin-left: 8px;' }, c.students.length + ' 人')
+      ),
+      el('button', {
+        class: 'btn btn-sm btn-outline',
+        onclick: async () => {
+          const newName = prompt('修改班級名稱', c.name);
+          if (newName && newName.trim()) {
+            c.name = newName.trim();
+            saveState();
+            renderAll();
+          }
+        }
+      }, '✏️'),
+      el('button', {
+        class: 'btn btn-sm btn-danger',
+        onclick: async () => {
+          const ok = await confirmDialog('刪除班級', `確定刪除「${c.name}」？此班級的所有學生、書本與紀錄都會被刪除。`);
+          if (!ok) return;
+          state.books.filter(b => b.classId === c.id).forEach(b => {
+            Object.keys(state.records).forEach(k => {
+              if (k.startsWith(b.id + ':')) delete state.records[k];
+            });
+          });
+          state.books = state.books.filter(b => b.classId !== c.id);
+          state.classes = state.classes.filter(x => x.id !== c.id);
+          if (state.activeClassId === c.id) {
+            state.activeClassId = state.classes[0]?.id || null;
+          }
+          saveState();
+          renderAll();
+          showToast('班級已刪除');
+        }
+      }, '🗑')
+    );
+    cont.appendChild(item);
+  });
+}
+
+$('#addClassBtn').addEventListener('click', () => {
+  const name = $('#newClassName').value.trim();
+  if (!name) return showToast('請輸入班級名稱');
+  if (state.classes.some(c => c.name === name)) return showToast('班級名稱重複');
+  const newClass = { id: uid(), name, students: [] };
+  state.classes.push(newClass);
+  state.activeClassId = newClass.id;
+  $('#newClassName').value = '';
+  saveState();
+  renderAll();
+  showToast('班級已新增');
+});
+
+function renderStudentList() {
+  const cont = $('#studentList');
+  cont.innerHTML = '';
+  const cls = getActiveClass();
+  if (!cls) {
+    cont.appendChild(el('div', { class: 'empty-state-text', style: 'padding: 8px; color: var(--text-muted); font-size: 13px;' }, '請先選擇班級'));
+    return;
+  }
+  if (cls.students.length === 0) {
+    cont.appendChild(el('div', { class: 'empty-state-text', style: 'padding: 8px; color: var(--text-muted); font-size: 13px;' }, '尚無學生'));
+    return;
+  }
+  const sorted = [...cls.students].sort((a, b) => (a.seat || 999) - (b.seat || 999));
+  sorted.forEach(s => {
+    const item = el('div', { class: 'list-item' },
+      el('div', { class: 'list-item-text' },
+        el('span', { class: 'list-item-meta', style: 'margin-right: 8px; min-width: 24px; display: inline-block;' }, String(s.seat || '-')),
+        s.name
+      ),
+      el('button', {
+        class: 'btn btn-sm btn-outline',
+        onclick: () => {
+          const newName = prompt('修改姓名', s.name);
+          if (newName && newName.trim()) {
+            s.name = newName.trim();
+            saveState();
+            renderStudentList();
+          }
+        }
+      }, '✏️'),
+      el('button', {
+        class: 'btn btn-sm btn-danger',
+        onclick: async () => {
+          const ok = await confirmDialog('刪除學生', `確定刪除「${s.name}」？相關紀錄也會清除。`);
+          if (!ok) return;
+          cls.students = cls.students.filter(x => x.id !== s.id);
+          Object.keys(state.records).forEach(k => {
+            if (k.endsWith(':' + s.id)) delete state.records[k];
+          });
+          saveState();
+          renderAll();
+          showToast('學生已刪除');
+        }
+      }, '🗑')
+    );
+    cont.appendChild(item);
+  });
+}
+
+$('#addStudentsBtn').addEventListener('click', () => {
+  const cls = getActiveClass();
+  if (!cls) return showToast('請先新增班級');
+  const text = $('#bulkStudentInput').value.trim();
+  if (!text) return showToast('請輸入學生資料');
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  let nextSeat = cls.students.reduce((m, s) => Math.max(m, s.seat || 0), 0);
+  let added = 0, skipped = 0;
+  lines.forEach(line => {
+    const m = line.match(/^(\d+)\s+(.+)$/);
+    let seat, name;
+    if (m) {
+      seat = parseInt(m[1], 10);
+      name = m[2].trim();
+    } else {
+      nextSeat += 1;
+      seat = nextSeat;
+      name = line;
+    }
+    if (!name) return;
+    if (cls.students.some(s => s.name === name)) {
+      skipped += 1;
+      return;
+    }
+    if (m) nextSeat = Math.max(nextSeat, seat);
+    cls.students.push({ id: uid(), name, seat });
+    added += 1;
+  });
+  $('#bulkStudentInput').value = '';
+  saveState();
+  renderAll();
+  showToast(`新增 ${added} 位` + (skipped ? `（跳過 ${skipped} 位重複）` : ''));
+});
+
+$('#clearStudentsBtn').addEventListener('click', async () => {
+  const cls = getActiveClass();
+  if (!cls || cls.students.length === 0) return;
+  const ok = await confirmDialog('清空名單', `確定清空「${cls.name}」的所有學生與紀錄？`);
+  if (!ok) return;
+  cls.students.forEach(s => {
+    Object.keys(state.records).forEach(k => {
+      if (k.endsWith(':' + s.id)) delete state.records[k];
+    });
+  });
+  cls.students = [];
+  saveState();
+  renderAll();
+  showToast('已清空');
+});
+
+function renderBookList() {
+  const cont = $('#bookList');
+  cont.innerHTML = '';
+  const cls = getActiveClass();
+  if (!cls) {
+    cont.appendChild(el('div', { class: 'empty-state-text', style: 'padding: 8px; color: var(--text-muted); font-size: 13px;' }, '請先選擇班級'));
+    return;
+  }
+  const books = getBooksForActiveClass();
+  if (books.length === 0) {
+    cont.appendChild(el('div', { class: 'empty-state-text', style: 'padding: 8px; color: var(--text-muted); font-size: 13px;' }, '尚無項目'));
+    return;
+  }
+  books.forEach(b => {
+    const item = el('div', { class: 'list-item' },
+      el('div', { class: 'list-item-text' },
+        el('span', { class: 'badge ' + (b.type === 'recitation' ? 'badge-recitation' : '') }, b.type === 'recitation' ? '背誦' : '功課'),
+        ' ',
+        b.name,
+        el('span', { class: 'list-item-meta', style: 'margin-left: 6px;' }, '共 ' + b.totalLessons + ' 課')
+      ),
+      el('button', {
+        class: 'btn btn-sm btn-outline',
+        onclick: () => {
+          const newName = prompt('修改名稱', b.name);
+          if (!newName || !newName.trim()) return;
+          const newCount = parseInt(prompt('修改總課數', b.totalLessons), 10);
+          if (!newCount || newCount < 1) return;
+          b.name = newName.trim();
+          b.totalLessons = newCount;
+          saveState();
+          renderAll();
+        }
+      }, '✏️'),
+      el('button', {
+        class: 'btn btn-sm btn-danger',
+        onclick: async () => {
+          const ok = await confirmDialog('刪除項目', `確定刪除「${b.name}」？相關紀錄也會清除。`);
+          if (!ok) return;
+          Object.keys(state.records).forEach(k => {
+            if (k.startsWith(b.id + ':')) delete state.records[k];
+          });
+          state.books = state.books.filter(x => x.id !== b.id);
+          if (state.activeBookId === b.id) state.activeBookId = null;
+          saveState();
+          renderAll();
+          showToast('項目已刪除');
+        }
+      }, '🗑')
+    );
+    cont.appendChild(item);
+  });
+}
+
+$('#addBookBtn').addEventListener('click', () => {
+  const cls = getActiveClass();
+  if (!cls) return showToast('請先新增班級');
+  const name = $('#newBookName').value.trim();
+  const lessons = parseInt($('#newBookLessons').value, 10);
+  const type = $('#newBookType').value;
+  if (!name) return showToast('請輸入名稱');
+  if (!lessons || lessons < 1) return showToast('請輸入有效的總課數');
+  state.books.push({ id: uid(), name, totalLessons: lessons, type, classId: cls.id });
+  $('#newBookName').value = '';
+  $('#newBookLessons').value = '';
+  saveState();
+  renderAll();
+  showToast('項目已新增');
+});
+
+// ============ Check-in Tab ============
+$$('#tab-checkin .sub-tab').forEach(t => {
+  t.addEventListener('click', () => {
+    state.activeBookType = t.dataset.type;
+    state.activeBookId = null;
+    saveState();
+    renderCheckin();
+  });
+});
+
+$('#bookSelector').addEventListener('change', (e) => {
+  state.activeBookId = e.target.value;
+  saveState();
+  renderGrid();
+});
+
+function renderCheckin() {
+  // Update sub-tab active state
+  $$('#tab-checkin .sub-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.type === state.activeBookType);
+  });
+
+  const cls = getActiveClass();
+  const sel = $('#bookSelector');
+  sel.innerHTML = '';
+
+  if (!cls) {
+    sel.appendChild(el('option', { value: '' }, '請先新增班級'));
+    $('#gridArea').innerHTML = '';
+    $('#gridArea').appendChild(emptyState('🏫', '請至「設定」新增班級'));
+    return;
+  }
+
+  const books = getBooksForActiveClass(state.activeBookType);
+  if (books.length === 0) {
+    sel.appendChild(el('option', { value: '' }, '尚無項目'));
+    $('#gridArea').innerHTML = '';
+    const typeName = state.activeBookType === 'recitation' ? '背誦項目' : '功課項目';
+    $('#gridArea').appendChild(emptyState('📚', `請至「設定」新增${typeName}`));
+    return;
+  }
+
+  books.forEach(b => sel.appendChild(el('option', { value: b.id }, b.name + '（' + b.totalLessons + ' 課）')));
+
+  if (!state.activeBookId || !books.find(b => b.id === state.activeBookId)) {
+    state.activeBookId = books[0].id;
+  }
+  sel.value = state.activeBookId;
+
+  if (cls.students.length === 0) {
+    $('#gridArea').innerHTML = '';
+    $('#gridArea').appendChild(emptyState('👥', '請至「設定」新增學生名單'));
+    return;
+  }
+
+  renderGrid();
+}
+
+function emptyState(icon, text) {
+  return el('div', { class: 'empty-state' },
+    el('div', { class: 'empty-icon' }, icon),
+    el('div', { class: 'empty-state-text' }, text)
+  );
+}
+
+function renderGrid() {
+  const area = $('#gridArea');
+  area.innerHTML = '';
+  const cls = getActiveClass();
+  const book = getActiveBook();
+  if (!cls || !book) return;
+
+  const students = [...cls.students].sort((a, b) => (a.seat || 999) - (b.seat || 999));
+  const lessons = Array.from({ length: book.totalLessons }, (_, i) => i + 1);
+
+  const wrapper = el('div', { class: 'grid-wrapper' });
+  const grid = el('div', { class: 'check-grid' });
+
+  // Set grid template: 1 sticky name column + N lesson columns
+  const colWidths = `minmax(110px, 1.4fr) repeat(${lessons.length}, minmax(44px, 1fr))`;
+  grid.style.gridTemplateColumns = colWidths;
+
+  // Header row: corner + lesson numbers
+  grid.appendChild(el('div', { class: 'grid-cell grid-corner' }, '座號 / 姓名'));
+  lessons.forEach(n => {
+    const markAll = el('span', {
+      class: 'mark-all-btn',
+      title: '全部完成',
+      onclick: (e) => {
+        e.stopPropagation();
+        const allDone = students.every(s => isDone(book.id, n, s.id));
+        students.forEach(s => setDone(book.id, n, s.id, !allDone));
+        saveState();
+        renderGrid();
+      }
+    }, '全');
+    grid.appendChild(el('div', { class: 'grid-cell grid-header' },
+      el('span', { class: 'lesson-num' }, '第' + n + '課'),
+      markAll
+    ));
+  });
+
+  // Student rows
+  students.forEach(s => {
+    grid.appendChild(el('div', { class: 'grid-cell grid-name-cell' },
+      el('span', { class: 'seat' }, String(s.seat || '')),
+      s.name
+    ));
+    lessons.forEach(n => {
+      const done = isDone(book.id, n, s.id);
+      const cell = el('div', {
+        class: 'grid-cell check-cell' + (done ? ' done' : ''),
+        onclick: () => {
+          const newDone = !isDone(book.id, n, s.id);
+          setDone(book.id, n, s.id, newDone);
+          cell.classList.toggle('done', newDone);
+          saveState();
+        }
+      }, el('div', { class: 'check-mark' }, '✓'));
+      grid.appendChild(cell);
+    });
+  });
+
+  wrapper.appendChild(grid);
+  area.appendChild(wrapper);
+
+  // Stats
+  const total = students.length * lessons.length;
+  const done = students.reduce((sum, s) =>
+    sum + lessons.filter(n => isDone(book.id, n, s.id)).length, 0);
+  const pct = total > 0 ? Math.round(done / total * 100) : 0;
+  area.appendChild(el('div', {
+    style: 'margin-top: 10px; text-align: center; font-size: 13px; color: var(--text-secondary);'
+  }, `完成度 ${done} / ${total}（${pct}%）`));
+}
+
+// ============ Summary Tab ============
+$('#showAllStudents').addEventListener('change', renderSummary);
+
+function computeMissing(book, students) {
+  const rows = students.map(s => {
+    const missing = [];
+    for (let n = 1; n <= book.totalLessons; n++) {
+      if (!isDone(book.id, n, s.id)) missing.push(n);
+    }
+    return { student: s, missing };
+  });
+  return rows.sort((a, b) => {
+    if (b.missing.length !== a.missing.length) return b.missing.length - a.missing.length;
+    return (a.student.seat || 999) - (b.student.seat || 999);
+  });
+}
+
+function severityClass(count) {
+  if (count === 0) return 'severity-low';
+  if (count <= 2) return 'severity-mid';
+  return 'severity-high';
+}
+
+function renderSummary() {
+  const area = $('#summaryArea');
+  area.innerHTML = '';
+  const cls = getActiveClass();
+  if (!cls) {
+    area.appendChild(emptyState('🏫', '請先新增班級'));
+    return;
+  }
+  if (cls.students.length === 0) {
+    area.appendChild(emptyState('👥', '班級尚無學生'));
+    return;
+  }
+
+  const showAll = $('#showAllStudents').checked;
+  const books = getBooksForActiveClass();
+  if (books.length === 0) {
+    area.appendChild(emptyState('📚', '尚無作業與背誦項目'));
+    return;
+  }
+
+  const sections = [
+    { type: 'homework', title: '📖 作業未交', emptyText: '全部繳交完成！🎉' },
+    { type: 'recitation', title: '🎤 背誦未完成', emptyText: '全部背誦完成！🎉' }
+  ];
+
+  sections.forEach(section => {
+    const sectionBooks = books.filter(b => b.type === section.type);
+    if (sectionBooks.length === 0) return;
+
+    const card = el('div', { class: 'card' });
+    card.appendChild(el('h3', { class: 'subsection-title', style: 'margin-top: 0;' }, section.title));
+
+    let hasAnyMissing = false;
+    sectionBooks.forEach(b => {
+      const rows = computeMissing(b, cls.students);
+      const filtered = showAll ? rows : rows.filter(r => r.missing.length > 0);
+
+      const bookTitle = el('div', {
+        style: 'font-size: 14px; font-weight: 600; margin: 12px 0 6px 0;'
+      },
+        b.name,
+        el('span', { class: 'list-item-meta', style: 'margin-left: 8px; font-weight: normal;' }, '共 ' + b.totalLessons + ' 課')
+      );
+      card.appendChild(bookTitle);
+
+      if (filtered.length === 0) {
+        card.appendChild(el('div', { class: 'summary-empty' }, section.emptyText));
+        return;
+      }
+
+      hasAnyMissing = true;
+      const table = el('table', { class: 'summary-table' });
+      table.appendChild(el('thead', {},
+        el('tr', {},
+          el('th', { class: 'col-seat' }, '座號'),
+          el('th', {}, '姓名'),
+          el('th', {}, '缺少課次'),
+          el('th', { class: 'col-count' }, '缺交數')
+        )
+      ));
+      const tbody = el('tbody');
+      filtered.forEach(r => {
+        const sev = severityClass(r.missing.length);
+        tbody.appendChild(el('tr', {},
+          el('td', { class: 'col-seat' }, String(r.student.seat || '-')),
+          el('td', {}, r.student.name),
+          el('td', { style: 'font-size: 12px;' },
+            r.missing.length === 0 ? '—' : r.missing.map(n => '第' + n + '課').join('、')
+          ),
+          el('td', { class: 'col-count ' + sev }, String(r.missing.length))
+        ));
+      });
+      table.appendChild(tbody);
+      card.appendChild(table);
+    });
+
+    area.appendChild(card);
+  });
+}
+
+// ============ Export Tab ============
+function buildPdfContent() {
+  const area = $('#pdfRenderArea');
+  area.innerHTML = '';
+  const cls = getActiveClass();
+  if (!cls) return false;
+
+  const dateStr = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
+
+  area.appendChild(el('h1', {}, cls.name + ' 功課背誦進度表'));
+  area.appendChild(el('div', { class: 'pdf-meta' }, '列印日期：' + dateStr + '　|　學生人數：' + cls.students.length));
+
+  const books = getBooksForActiveClass();
+  if (books.length === 0) {
+    area.appendChild(el('p', { style: 'text-align: center; color: #888;' }, '尚無功課與背誦項目'));
+    return true;
+  }
+
+  const sorted = [...cls.students].sort((a, b) => (a.seat || 999) - (b.seat || 999));
+
+  ['homework', 'recitation'].forEach(type => {
+    const typeBooks = books.filter(b => b.type === type);
+    if (typeBooks.length === 0) return;
+
+    area.appendChild(el('h2', {}, type === 'homework' ? '📖 功課登記' : '🎤 背誦登記'));
+
+    typeBooks.forEach(b => {
+      area.appendChild(el('div', {
+        style: 'font-size: 13px; font-weight: 700; margin: 10px 0 4px 0;'
+      }, b.name + '（共 ' + b.totalLessons + ' 課）'));
+
+      const table = el('table');
+      const thead = el('thead');
+      const headRow = el('tr', {},
+        el('th', { style: 'width: 36px;' }, '座號'),
+        el('th', { style: 'width: 80px; text-align: left;' }, '姓名')
+      );
+      for (let n = 1; n <= b.totalLessons; n++) {
+        headRow.appendChild(el('th', {}, String(n)));
+      }
+      headRow.appendChild(el('th', { style: 'width: 50px;' }, '缺交'));
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+
+      const tbody = el('tbody');
+      sorted.forEach(s => {
+        let missing = 0;
+        const row = el('tr', {},
+          el('td', {}, String(s.seat || '-')),
+          el('td', { class: 'name' }, s.name)
+        );
+        for (let n = 1; n <= b.totalLessons; n++) {
+          const done = isDone(b.id, n, s.id);
+          if (!done) missing += 1;
+          row.appendChild(el('td', { class: done ? 'pdf-check' : 'pdf-miss' }, done ? '✓' : ''));
+        }
+        row.appendChild(el('td', { class: missing > 0 ? 'pdf-miss' : '', style: 'font-weight: 700;' }, String(missing)));
+        tbody.appendChild(row);
+      });
+      table.appendChild(tbody);
+      area.appendChild(table);
+    });
+  });
+
+  return true;
+}
+
+async function exportPdf() {
+  const cls = getActiveClass();
+  if (!cls) return showToast('請先選擇班級');
+  if (cls.students.length === 0) return showToast('班級尚無學生');
+
+  showToast('PDF 產生中...', 5000);
+
+  if (!buildPdfContent()) return;
+  await new Promise(r => setTimeout(r, 100));
+
+  try {
+    const target = $('#pdfRenderArea');
+    const canvas = await html2canvas(target, {
+      scale: 2,
+      backgroundColor: '#ffffff',
+      useCORS: true,
+      logging: false
+    });
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pdfW = 210;
+    const pdfH = 297;
+    const imgW = pdfW;
+    const imgH = canvas.height * imgW / canvas.width;
+
+    if (imgH <= pdfH) {
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, imgW, imgH);
+    } else {
+      // Multi-page: slice the canvas
+      const pageHeightPx = canvas.width * pdfH / pdfW;
+      let renderedPx = 0;
+      let pageNo = 0;
+      while (renderedPx < canvas.height) {
+        const sliceH = Math.min(pageHeightPx, canvas.height - renderedPx);
+        const slice = document.createElement('canvas');
+        slice.width = canvas.width;
+        slice.height = sliceH;
+        slice.getContext('2d').drawImage(canvas, 0, renderedPx, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+        const sliceImgH = sliceH * imgW / canvas.width;
+        if (pageNo > 0) pdf.addPage();
+        pdf.addImage(slice.toDataURL('image/png'), 'PNG', 0, 0, imgW, sliceImgH);
+        renderedPx += sliceH;
+        pageNo += 1;
+      }
+    }
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    pdf.save(`${cls.name}_進度表_${dateStr}.pdf`);
+    showToast('PDF 已產生');
+  } catch (e) {
+    console.error(e);
+    showToast('PDF 產生失敗：' + e.message, 4000);
+  } finally {
+    $('#pdfRenderArea').innerHTML = '';
+  }
+}
+
+$('#exportPdfBtn').addEventListener('click', exportPdf);
+
+// JSON export/import
+$('#exportJsonBtn').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `homework_recite_backup_${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('JSON 已匯出');
+});
+
+$('#importJsonBtn').addEventListener('click', () => $('#importJsonFile').click());
+
+$('#importJsonFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const ok = await confirmDialog('匯入 JSON', '匯入將覆蓋目前所有資料，確定繼續？');
+  e.target.value = '';
+  if (!ok) return;
+
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!data || typeof data !== 'object' || !Array.isArray(data.classes)) {
+      throw new Error('資料格式不正確');
+    }
+    state = Object.assign(defaultState(), data);
+    saveState();
+    applyTheme();
+    renderAll();
+    showToast('JSON 已匯入');
+  } catch (err) {
+    showToast('匯入失敗：' + err.message, 4000);
+  }
+});
+
+$('#resetAllBtn').addEventListener('click', async () => {
+  const ok = await confirmDialog('清除所有資料', '此操作將刪除所有班級、學生、書本與紀錄，無法復原。確定繼續？');
+  if (!ok) return;
+  state = defaultState();
+  saveState();
+  applyTheme();
+  renderAll();
+  showToast('資料已清除');
+});
+
+// ============ Init ============
+function init() {
+  applyTheme();
+  renderAll();
+  // Default to checkin tab
+  switchTab('checkin');
+}
+
+init();
+</script>
+</body>
+</html>
