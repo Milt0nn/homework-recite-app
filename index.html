@@ -682,7 +682,7 @@ textarea {
   position: absolute;
   left: -10000px;
   top: 0;
-  width: 794px;
+  width: 1122px;
   background: white;
   color: #000;
   padding: 30px;
@@ -894,9 +894,14 @@ textarea {
 
     <div class="card">
       <div class="card-header">
-        <h3 class="card-title">📄 匯出 PDF（A4）</h3>
+        <h3 class="card-title">📄 匯出 PDF（A4 橫式）</h3>
       </div>
-      <p class="form-hint" style="margin-bottom: 10px;">將目前班級的完整進度表輸出為 A4 大小 PDF。</p>
+      <p class="form-hint" style="margin-bottom: 10px;">勾選要匯出的教材，產生 A4 橫式 PDF。</p>
+      <div id="pdfBookSelector" style="margin-bottom: 10px;"></div>
+      <div class="btn-row" style="margin-bottom: 8px;">
+        <button class="btn btn-sm btn-outline" id="pdfSelectAll">全選</button>
+        <button class="btn btn-sm btn-outline" id="pdfSelectNone">全不選</button>
+      </div>
       <button class="btn btn-primary btn-block" id="exportPdfBtn">產生 PDF</button>
     </div>
 
@@ -1121,6 +1126,7 @@ function switchTab(name) {
   if (name === 'checkin') renderCheckin();
   if (name === 'summary') renderSummary();
   if (name === 'settings') renderSettings();
+  if (name === 'export') renderPdfBookSelector();
 }
 
 $$('.tab-btn').forEach(btn => {
@@ -1720,22 +1726,54 @@ function renderSummary() {
 }
 
 // ============ Export Tab ============
-function buildPdfContent() {
+function renderPdfBookSelector() {
+  const cont = $('#pdfBookSelector');
+  cont.innerHTML = '';
+  const books = getBooksForActiveClass();
+  if (books.length === 0) {
+    cont.appendChild(el('div', { style: 'font-size: 13px; color: var(--text-muted); padding: 4px 0;' }, '尚無教材（請至設定新增）'));
+    return;
+  }
+  books.forEach(b => {
+    const required = getRequiredLessons(b);
+    const typeLabel = b.type === 'recitation' ? '背誦' : '功課';
+    const label = el('label', {
+      style: 'display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 14px; border-bottom: 1px solid var(--border-color); cursor: pointer;'
+    },
+      el('input', { type: 'checkbox', checked: 'checked', class: 'pdf-book-cb', dataset: { bookId: b.id }, style: 'width: auto; flex-shrink: 0;' }),
+      el('span', { class: 'badge ' + (b.type === 'recitation' ? 'badge-recitation' : ''), style: 'flex-shrink: 0;' }, typeLabel),
+      el('span', {}, b.name),
+      el('span', { style: 'font-size: 11px; color: var(--text-muted); margin-left: auto; flex-shrink: 0;' }, required.length + ' 課')
+    );
+    cont.appendChild(label);
+  });
+}
+
+$('#pdfSelectAll').addEventListener('click', () => {
+  $$('.pdf-book-cb').forEach(cb => cb.checked = true);
+});
+$('#pdfSelectNone').addEventListener('click', () => {
+  $$('.pdf-book-cb').forEach(cb => cb.checked = false);
+});
+
+function getSelectedPdfBookIds() {
+  return [...$$('.pdf-book-cb')].filter(cb => cb.checked).map(cb => cb.dataset.bookId);
+}
+
+function buildPdfContent(selectedIds) {
   const area = $('#pdfRenderArea');
   area.innerHTML = '';
   const cls = getActiveClass();
   if (!cls) return false;
 
+  const allBooks = getBooksForActiveClass();
+  const books = allBooks.filter(b => selectedIds.includes(b.id));
+  if (books.length === 0) return false;
+
   const dateStr = new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
 
   area.appendChild(el('h1', {}, cls.name + ' 功課背誦進度表'));
   area.appendChild(el('div', { class: 'pdf-meta' }, '列印日期：' + dateStr + '　|　學生人數：' + cls.students.length));
-
-  const books = getBooksForActiveClass();
-  if (books.length === 0) {
-    area.appendChild(el('p', { style: 'text-align: center; color: #888;' }, '尚無功課與背誦項目'));
-    return true;
-  }
 
   const sorted = [...cls.students].sort((a, b) => (a.seat || 999) - (b.seat || 999));
 
@@ -1799,9 +1837,12 @@ async function exportPdf() {
   if (!cls) return showToast('請先選擇班級');
   if (cls.students.length === 0) return showToast('班級尚無學生');
 
+  const selectedIds = getSelectedPdfBookIds();
+  if (selectedIds.length === 0) return showToast('請至少勾選一項教材');
+
   showToast('PDF 產生中...', 5000);
 
-  if (!buildPdfContent()) return;
+  if (!buildPdfContent(selectedIds)) return;
   await new Promise(r => setTimeout(r, 100));
 
   try {
@@ -1814,16 +1855,15 @@ async function exportPdf() {
     });
 
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pdfW = 210;
-    const pdfH = 297;
+    const pdf = new jsPDF('l', 'mm', 'a4');
+    const pdfW = 297;
+    const pdfH = 210;
     const imgW = pdfW;
     const imgH = canvas.height * imgW / canvas.width;
 
     if (imgH <= pdfH) {
       pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, imgW, imgH);
     } else {
-      // Multi-page: slice the canvas
       const pageHeightPx = canvas.width * pdfH / pdfW;
       let renderedPx = 0;
       let pageNo = 0;
