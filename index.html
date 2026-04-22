@@ -127,6 +127,7 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
 .check-cell{cursor:pointer;user-select:none;-webkit-user-select:none}
 .check-mark{width:26px;height:26px;border-radius:6px;border:2px solid var(--check-border);background:var(--check-empty);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:transparent;transition:all .1s}
 .check-cell.done .check-mark{background:var(--check-done);border-color:var(--check-done);color:var(--check-done-text)}
+.check-cell.partial .check-mark{background:var(--warning);border-color:var(--warning);color:#fff}
 .check-cell:active .check-mark{transform:scale(.9)}
 .summary-table{width:100%;border-collapse:collapse;font-size:13px}
 .summary-table th,.summary-table td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border-color)}
@@ -157,6 +158,7 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
 .pdf-render-area table td.name{text-align:left;white-space:nowrap}
 .pdf-render-area .pdf-check{color:#2e7d32;font-weight:700}
 .pdf-render-area .pdf-miss{color:#c62828}
+.pdf-render-area .pdf-partial{color:#e65100;font-weight:700}
 /* expandable edit panel */
 .edit-panel{background:var(--bg-primary);border:1px solid var(--border-color);border-radius:8px;padding:12px;margin-top:8px}
 .edit-panel .form-row{margin-bottom:8px}
@@ -266,8 +268,11 @@ function confirmDialog(title,text){return new Promise(r=>{$('#modalTitle').textC
 function getActiveClass(){return state.classes.find(c=>c.id===state.activeClassId)||null}
 function getBooksForActiveClass(type){return state.books.filter(b=>b.classId===state.activeClassId&&(!type||b.type===type))}
 function recordKey(bid,l,sid){return bid+':'+l+':'+sid}
-function isDone(bid,l,sid){return !!state.records[recordKey(bid,l,sid)]}
-function setDone(bid,l,sid,d){const k=recordKey(bid,l,sid);if(d)state.records[k]=true;else delete state.records[k]}
+function getStatus(bid,l,sid){const v=state.records[recordKey(bid,l,sid)];if(v===true)return 'done';if(v==='partial')return 'partial';return 'empty'}
+function setStatus(bid,l,sid,st){const k=recordKey(bid,l,sid);if(st==='done')state.records[k]=true;else if(st==='partial')state.records[k]='partial';else delete state.records[k]}
+function isDone(bid,l,sid){return state.records[recordKey(bid,l,sid)]===true}
+function setDone(bid,l,sid,d){setStatus(bid,l,sid,d?'done':'empty')}
+function cycleStatus(bid,l,sid,isHomework){const cur=getStatus(bid,l,sid);if(isHomework){if(cur==='empty')return 'partial';if(cur==='partial')return 'done';return 'empty'}return cur==='done'?'empty':'done'}
 function ensureBookDefaults(b){if(b.startLesson===undefined)b.startLesson=1;if(!b.lessonLabel)b.lessonLabel='#';if(b.currentLesson===undefined)b.currentLesson=0;if(!b.lessonFilter)b.lessonFilter='all';if(b.skipEvery===undefined)b.skipEvery=0}
 function getRequiredLessons(b){ensureBookDefaults(b);const start=b.startLesson||1;const end=b.currentLesson>0?Math.min(b.currentLesson,b.totalLessons):b.totalLessons;const lessons=[];for(let n=start;n<=end;n++){if(b.lessonFilter==='odd'&&n%2===0)continue;if(b.lessonFilter==='even'&&n%2===1)continue;if(b.skipEvery>0&&n%b.skipEvery===0)continue;lessons.push(n)}return lessons}
 function fmtLesson(b,n){ensureBookDefaults(b);if(b.lessonLabel==='lesson')return 'L'+n;if(b.lessonLabel==='unit')return 'U'+n;return String(n)}
@@ -362,10 +367,11 @@ if(!required.length){body.appendChild(el('div',{class:'empty-state-text',style:'
 const wrapper=el('div',{class:'grid-wrapper'});const grid=el('div',{class:'check-grid'});
 grid.style.gridTemplateColumns='minmax(90px,1.2fr) repeat('+required.length+',minmax(40px,1fr))';
 grid.appendChild(el('div',{class:'grid-cell grid-corner'},'姓名'));
-required.forEach(n=>{const markAll=el('span',{class:'mark-all-btn',onclick:e=>{e.stopPropagation();const allDone=cls.students.every(s=>isDone(b.id,n,s.id));cls.students.forEach(s=>setDone(b.id,n,s.id,!allDone));saveState();renderCheckin()}},'全');
+required.forEach(n=>{const markAll=el('span',{class:'mark-all-btn',onclick:e=>{e.stopPropagation();const allDone=cls.students.every(s=>getStatus(b.id,n,s.id)==='done');cls.students.forEach(s=>setStatus(b.id,n,s.id,allDone?'empty':'done'));saveState();renderCheckin()}},'全');
 grid.appendChild(el('div',{class:'grid-cell grid-header'},el('span',{style:'font-weight:700'},fmtLesson(b,n)),markAll))});
+const isHw=b.type==='homework';
 cls.students.forEach((s,i)=>{grid.appendChild(el('div',{class:'grid-cell grid-name-cell'},s.name));
-required.forEach(n=>{const done=isDone(b.id,n,s.id);const cell=el('div',{class:'grid-cell check-cell'+(done?' done':''),onclick:()=>{const nd=!isDone(b.id,n,s.id);setDone(b.id,n,s.id,nd);cell.classList.toggle('done',nd);saveState()}},el('div',{class:'check-mark'},'✓'));grid.appendChild(cell)})});
+required.forEach(n=>{const st=getStatus(b.id,n,s.id);const mark=el('div',{class:'check-mark'},st==='done'?'✓':st==='partial'?'△':'');const cell=el('div',{class:'grid-cell check-cell'+(st==='done'?' done':st==='partial'?' partial':''),onclick:()=>{const ns=cycleStatus(b.id,n,s.id,isHw);setStatus(b.id,n,s.id,ns);cell.className='grid-cell check-cell'+(ns==='done'?' done':ns==='partial'?' partial':'');mark.textContent=ns==='done'?'✓':ns==='partial'?'△':'';saveState()}},mark);grid.appendChild(cell)})});
 wrapper.appendChild(grid);body.appendChild(wrapper);
 const total=cls.students.length*required.length;const done=cls.students.reduce((sum,s)=>sum+required.filter(n=>isDone(b.id,n,s.id)).length,0);const pct=total>0?Math.round(done/total*100):0;
 body.appendChild(el('div',{style:'margin-top:8px;text-align:center;font-size:12px;color:var(--text-muted)'},'完成 '+done+'/'+total+'（'+pct+'%）'));
@@ -375,7 +381,7 @@ function emptyState(icon,text){return el('div',{class:'empty-state'},el('div',{c
 
 // ============ Summary ============
 $('#showAllStudents').addEventListener('change',renderSummary);
-function computeMissing(b,students){const req=getRequiredLessons(b);return students.map(s=>({student:s,missing:req.filter(n=>!isDone(b.id,n,s.id))})).sort((a,c)=>c.missing.length-a.missing.length)}
+function computeMissing(b,students){const req=getRequiredLessons(b);return students.map(s=>{const missing=req.filter(n=>getStatus(b.id,n,s.id)==='empty');const partial=req.filter(n=>getStatus(b.id,n,s.id)==='partial');return{student:s,missing,partial}}).sort((a,c)=>(c.missing.length+c.partial.length)-(a.missing.length+a.partial.length))}
 function severityClass(c){return c===0?'severity-low':c<=2?'severity-mid':'severity-high'}
 function renderSummary(){const area=$('#summaryArea');area.innerHTML='';const cls=getActiveClass();
 if(!cls){area.appendChild(emptyState('🏫','請先新增班級'));return}
@@ -384,11 +390,20 @@ const showAll=$('#showAllStudents').checked;const books=getBooksForActiveClass()
 if(!books.length){area.appendChild(emptyState('📚','尚無教材'));return}
 [{type:'homework',title:'📖 功課未完成',ok:'全部完成！🎉'},{type:'recitation',title:'🎤 背誦未完成',ok:'全部完成！🎉'}].forEach(sec=>{const sb=books.filter(b=>b.type===sec.type);if(!sb.length)return;
 const card=el('div',{class:'card'});card.appendChild(el('h3',{style:'font-size:15px;font-weight:600;margin:0 0 8px'},sec.title));
-sb.forEach(b=>{ensureBookDefaults(b);const req=getRequiredLessons(b);const rows=computeMissing(b,cls.students);const filtered=showAll?rows:rows.filter(r=>r.missing.length>0);
+sb.forEach(b=>{ensureBookDefaults(b);const req=getRequiredLessons(b);const rows=computeMissing(b,cls.students);const filtered=showAll?rows:rows.filter(r=>r.missing.length>0||r.partial.length>0);
+const isHw=b.type==='homework';
 card.appendChild(el('div',{style:'font-size:14px;font-weight:600;margin:12px 0 6px'},b.name,el('span',{class:'list-item-meta',style:'margin-left:8px;font-weight:normal'},req.length+'/'+b.totalLessons+'課')));
 if(!filtered.length){card.appendChild(el('div',{class:'summary-empty'},sec.ok));return}
-const table=el('table',{class:'summary-table'});table.appendChild(el('thead',{},el('tr',{},el('th',{},'姓名'),el('th',{},'未完成課次'),el('th',{class:'col-count'},'未完成'))));
-const tbody=el('tbody');filtered.forEach(r=>{const sev=severityClass(r.missing.length);tbody.appendChild(el('tr',{},el('td',{},r.student.name),el('td',{style:'font-size:12px'},r.missing.length===0?'—':r.missing.map(n=>fmtLessonFull(b,n)).join('、')),el('td',{class:'col-count '+sev},String(r.missing.length))))});
+const headRow=el('tr',{},el('th',{},'姓名'),el('th',{},'未完成課次'));
+if(isHw)headRow.appendChild(el('th',{},'未訂正課次'));
+headRow.appendChild(el('th',{class:'col-count'},'未完成'));
+if(isHw)headRow.appendChild(el('th',{class:'col-count'},'未訂正'));
+const table=el('table',{class:'summary-table'});table.appendChild(el('thead',{},headRow));
+const tbody=el('tbody');filtered.forEach(r=>{const total=r.missing.length+r.partial.length;const sev=severityClass(total);const tr=el('tr',{},el('td',{},r.student.name),el('td',{style:'font-size:12px'},r.missing.length===0?'—':r.missing.map(n=>fmtLessonFull(b,n)).join('、')));
+if(isHw)tr.appendChild(el('td',{style:'font-size:12px;color:var(--warning)'},r.partial.length===0?'—':r.partial.map(n=>fmtLessonFull(b,n)).join('、')));
+tr.appendChild(el('td',{class:'col-count '+sev},String(r.missing.length)));
+if(isHw)tr.appendChild(el('td',{class:'col-count severity-mid'},String(r.partial.length)));
+tbody.appendChild(tr)});
 table.appendChild(tbody);card.appendChild(table)});area.appendChild(card)})}
 
 // ============ Export ============
@@ -408,13 +423,17 @@ area.appendChild(el('h2',{},type==='homework'?'📖 功課':'🎤 背誦'));
 tb.forEach(b=>{ensureBookDefaults(b);const req=getRequiredLessons(b);const info=bookInfoText(b);
 area.appendChild(el('div',{style:'font-size:13px;font-weight:700;margin:10px 0 4px'},b.name+'（'+info+'）'));
 if(!req.length){area.appendChild(el('p',{style:'font-size:12px;color:#888'},'目前無需完成'));return}
+const pdfIsHw=b.type==='homework';
 const table=el('table');const headRow=el('tr',{},el('th',{style:'width:80px;text-align:left'},'姓名'));
 req.forEach(n=>headRow.appendChild(el('th',{},fmtLesson(b,n))));
 headRow.appendChild(el('th',{style:'width:50px'},'未完成'));
+if(pdfIsHw)headRow.appendChild(el('th',{style:'width:50px'},'未訂正'));
 table.appendChild(el('thead',{},headRow));
-const tbody=el('tbody');cls.students.forEach(s=>{let miss=0;const row=el('tr',{},el('td',{class:'name'},s.name));
-req.forEach(n=>{const d=isDone(b.id,n,s.id);if(!d)miss++;row.appendChild(el('td',{class:d?'pdf-check':'pdf-miss'},d?'✓':''))});
-row.appendChild(el('td',{class:miss>0?'pdf-miss':'',style:'font-weight:700'},String(miss)));tbody.appendChild(row)});
+const tbody=el('tbody');cls.students.forEach(s=>{let miss=0,part=0;const row=el('tr',{},el('td',{class:'name'},s.name));
+req.forEach(n=>{const st=getStatus(b.id,n,s.id);if(st==='done')row.appendChild(el('td',{class:'pdf-check'},'✓'));else if(st==='partial'){part++;row.appendChild(el('td',{class:'pdf-partial'},'△'))}else{miss++;row.appendChild(el('td',{class:'pdf-miss'},''))}});
+row.appendChild(el('td',{class:miss>0?'pdf-miss':'',style:'font-weight:700'},String(miss)));
+if(pdfIsHw)row.appendChild(el('td',{class:part>0?'pdf-partial':'',style:'font-weight:700'},String(part)));
+tbody.appendChild(row)});
 table.appendChild(tbody);area.appendChild(table)})});return true}
 
 async function exportPdf(){const cls=getActiveClass();if(!cls)return showToast('請先選擇班級');if(!cls.students.length)return showToast('班級尚無學生');
