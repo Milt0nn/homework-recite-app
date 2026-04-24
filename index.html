@@ -197,9 +197,9 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
     <div class="card">
       <div class="card-header"><h3 class="card-title">👥 學生名單</h3><span id="currentClassLabel" class="list-item-meta"></span></div>
       <div class="form-group">
-        <label class="form-label">批次新增（每行一位姓名）</label>
-        <textarea id="bulkStudentInput" placeholder="王小明&#10;李小華&#10;張小美"></textarea>
-        <div class="form-hint">已存在的姓名會跳過。</div>
+        <label class="form-label">批次新增（每行格式：英文名 中文名）</label>
+        <textarea id="bulkStudentInput" placeholder="Amy 王小明&#10;Bob 李小華&#10;Cindy 張小美"></textarea>
+        <div class="form-hint">以空白分隔英文名與中文名。已存在的中文名會跳過。</div>
       </div>
       <div class="btn-row"><button class="btn btn-primary" id="addStudentsBtn">新增學生</button><button class="btn btn-outline" id="clearStudentsBtn">清空名單</button></div>
       <div id="studentList" style="margin-top:12px"></div>
@@ -305,10 +305,14 @@ $('#addClassBtn').addEventListener('click',()=>{const n=$('#newClassName').value
 
 function renderStudentList(){const cont=$('#studentList');cont.innerHTML='';const cls=getActiveClass();if(!cls){cont.appendChild(el('div',{style:'padding:8px;color:var(--text-muted);font-size:13px'},'請先選擇班級'));return}
 if(!cls.students.length){cont.appendChild(el('div',{style:'padding:8px;color:var(--text-muted);font-size:13px'},'尚無學生'));return}
-cls.students.forEach((s,i)=>{let editing=false;const nameSpan=el('span',{class:'list-item-text',style:'cursor:pointer',onclick:()=>{if(editing)return;editing=true;const inp=el('input',{class:'inline-input',value:s.name,onBlur:()=>{const v=inp.value.trim();if(v&&v!==s.name){s.name=v;saveState()}editing=false;renderStudentList()},onKeydown:e=>{if(e.key==='Enter')inp.blur();if(e.key==='Escape'){editing=false;renderStudentList()}}});nameSpan.replaceWith(inp);inp.focus();inp.select()}},String(i+1)+'. '+s.name);
-cont.appendChild(el('div',{class:'list-item'},nameSpan,el('button',{class:'btn btn-sm btn-danger',onclick:async()=>{const ok=await confirmDialog('刪除學生','確定刪除「'+s.name+'」？');if(!ok)return;cls.students=cls.students.filter(x=>x.id!==s.id);Object.keys(state.records).forEach(k=>{if(k.endsWith(':'+s.id))delete state.records[k]});saveState();renderAll();showToast('已刪除')}},'🗑')))})}
+cls.students.forEach((s,i)=>{if(!s.engName)s.engName='';
+const makeEditable=(span,field,render)=>{let ed=false;span.style.cursor='pointer';span.addEventListener('click',()=>{if(ed)return;ed=true;const inp=el('input',{class:'inline-input',value:s[field],style:'max-width:120px',onBlur:()=>{const v=inp.value.trim();if(v)s[field]=v;ed=false;saveState();renderStudentList()},onKeydown:e=>{if(e.key==='Enter')inp.blur();if(e.key==='Escape'){ed=false;renderStudentList()}}});span.replaceWith(inp);inp.focus();inp.select()})};
+const engSpan=el('span',{style:'color:var(--info);font-weight:600;margin-right:6px'},s.engName||'(無英文名)');
+const nameSpan=el('span',{},s.name);
+makeEditable(engSpan,'engName');makeEditable(nameSpan,'name');
+cont.appendChild(el('div',{class:'list-item'},el('span',{class:'list-item-text'},el('span',{style:'color:var(--text-muted);font-size:12px;margin-right:6px'},String(i+1)+'.'),engSpan,nameSpan),el('button',{class:'btn btn-sm btn-danger',onclick:async()=>{const ok=await confirmDialog('刪除學生','確定刪除「'+s.name+'」？');if(!ok)return;cls.students=cls.students.filter(x=>x.id!==s.id);Object.keys(state.records).forEach(k=>{if(k.endsWith(':'+s.id))delete state.records[k]});saveState();renderAll();showToast('已刪除')}},'🗑')))})}
 
-$('#addStudentsBtn').addEventListener('click',()=>{const cls=getActiveClass();if(!cls)return showToast('請先新增班級');const t=$('#bulkStudentInput').value.trim();if(!t)return showToast('請輸入學生');const lines=t.split('\n').map(l=>l.trim()).filter(Boolean);let added=0,skipped=0;lines.forEach(name=>{if(!name)return;if(cls.students.some(s=>s.name===name)){skipped++;return}cls.students.push({id:uid(),name});added++});$('#bulkStudentInput').value='';saveState();renderAll();showToast('新增 '+added+' 位'+(skipped?'（跳過 '+skipped+' 位重複）':''))});
+$('#addStudentsBtn').addEventListener('click',()=>{const cls=getActiveClass();if(!cls)return showToast('請先新增班級');const t=$('#bulkStudentInput').value.trim();if(!t)return showToast('請輸入學生');const lines=t.split('\n').map(l=>l.trim()).filter(Boolean);let added=0,skipped=0;lines.forEach(line=>{if(!line)return;const parts=line.split(/\s+/);let engName='',name='';if(parts.length>=2){engName=parts[0];name=parts.slice(1).join(' ')}else{name=parts[0]}if(cls.students.some(s=>s.name===name)){skipped++;return}cls.students.push({id:uid(),name,engName});added++});$('#bulkStudentInput').value='';saveState();renderAll();showToast('新增 '+added+' 位'+(skipped?'（跳過 '+skipped+' 位重複）':''))});
 $('#clearStudentsBtn').addEventListener('click',async()=>{const cls=getActiveClass();if(!cls||!cls.students.length)return;const ok=await confirmDialog('清空名單','確定清空所有學生？');if(!ok)return;cls.students.forEach(s=>{Object.keys(state.records).forEach(k=>{if(k.endsWith(':'+s.id))delete state.records[k]})});cls.students=[];saveState();renderAll();showToast('已清空')});
 
 function renderBookList(){const cont=$('#bookList');cont.innerHTML='';const cls=getActiveClass();if(!cls){cont.appendChild(el('div',{style:'padding:8px;color:var(--text-muted);font-size:13px'},'請先選擇班級'));return}
@@ -386,7 +390,7 @@ cols.forEach(col=>{const markAll=el('span',{class:'mark-all-btn',onclick:e=>{e.s
 const colLabel=col.type==='review'?col.label:fmtLesson(b,col.num);
 grid.appendChild(el('div',{class:'grid-cell grid-header'+(col.type==='review'?' review-col':'')},el('span',{style:'font-weight:700'},colLabel),markAll))});
 const isHw=b.type==='homework';
-cls.students.forEach((s,i)=>{grid.appendChild(el('div',{class:'grid-cell grid-name-cell'},s.name));
+cls.students.forEach((s,i)=>{grid.appendChild(el('div',{class:'grid-cell grid-name-cell'},s.engName||s.name));
 cols.forEach(col=>{const st=getStatus(b.id,col.key,s.id);const mark=el('div',{class:'check-mark'},st==='done'?'✓':st==='partial'?'△':'');const cell=el('div',{class:'grid-cell check-cell'+(st==='done'?' done':st==='partial'?' partial':''),onclick:()=>{const ns=cycleStatus(b.id,col.key,s.id,isHw);setStatus(b.id,col.key,s.id,ns);cell.className='grid-cell check-cell'+(ns==='done'?' done':ns==='partial'?' partial':'');mark.textContent=ns==='done'?'✓':ns==='partial'?'△':'';saveState()}},mark);grid.appendChild(cell)})});
 wrapper.appendChild(grid);body.appendChild(wrapper);
 const total=cls.students.length*cols.length;const done=cls.students.reduce((sum,s)=>sum+cols.filter(c=>getStatus(b.id,c.key,s.id)==='done').length,0);const pct=total>0?Math.round(done/total*100):0;
@@ -415,7 +419,7 @@ if(isHw)headRow.appendChild(el('th',{},'未訂正課次'));
 headRow.appendChild(el('th',{class:'col-count'},'未完成'));
 if(isHw)headRow.appendChild(el('th',{class:'col-count'},'未訂正'));
 const table=el('table',{class:'summary-table'});table.appendChild(el('thead',{},headRow));
-const tbody=el('tbody');filtered.forEach(r=>{const total=r.missing.length+r.partial.length;const sev=severityClass(total);const tr=el('tr',{},el('td',{},r.student.name),el('td',{style:'font-size:12px'},r.missing.length===0?'—':r.missing.map(c=>c.type==='review'?c.label:fmtLessonFull(b,c.num)).join('、')));
+const tbody=el('tbody');filtered.forEach(r=>{const total=r.missing.length+r.partial.length;const sev=severityClass(total);const sLabel=(r.student.engName?r.student.engName+' ':'')+r.student.name;const tr=el('tr',{},el('td',{},sLabel),el('td',{style:'font-size:12px'},r.missing.length===0?'—':r.missing.map(c=>c.type==='review'?c.label:fmtLessonFull(b,c.num)).join('、')));
 if(isHw)tr.appendChild(el('td',{style:'font-size:12px;color:var(--warning)'},r.partial.length===0?'—':r.partial.map(c=>c.type==='review'?c.label:fmtLessonFull(b,c.num)).join('、')));
 tr.appendChild(el('td',{class:'col-count '+sev},String(r.missing.length)));
 if(isHw)tr.appendChild(el('td',{class:'col-count severity-mid'},String(r.partial.length)));
@@ -445,7 +449,7 @@ cols.forEach(c=>headRow.appendChild(el('th',{},c.type==='review'?c.label:fmtLess
 headRow.appendChild(el('th',{style:'width:50px'},'未完成'));
 if(pdfIsHw)headRow.appendChild(el('th',{style:'width:50px'},'未訂正'));
 table.appendChild(el('thead',{},headRow));
-const tbody=el('tbody');cls.students.forEach(s=>{let miss=0,part=0;const row=el('tr',{},el('td',{class:'name'},s.name));
+const tbody=el('tbody');cls.students.forEach(s=>{let miss=0,part=0;const pdfName=(s.engName?s.engName+' ':'')+s.name;const row=el('tr',{},el('td',{class:'name'},pdfName));
 cols.forEach(c=>{const st=getStatus(b.id,c.key,s.id);if(st==='done')row.appendChild(el('td',{class:'pdf-check'},'✓'));else if(st==='partial'){part++;row.appendChild(el('td',{class:'pdf-partial'},'△'))}else{miss++;row.appendChild(el('td',{class:'pdf-miss'},''))}});
 row.appendChild(el('td',{class:miss>0?'pdf-miss':'',style:'font-weight:700'},String(miss)));
 if(pdfIsHw)row.appendChild(el('td',{class:part>0?'pdf-partial':'',style:'font-weight:700'},String(part)));
