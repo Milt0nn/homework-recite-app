@@ -281,6 +281,8 @@ function fmtLesson(b,n){ensureBookDefaults(b);if(b.lessonLabel==='lesson')return
 function fmtLessonFull(b,n){ensureBookDefaults(b);if(b.lessonLabel==='lesson')return 'Lesson '+n;if(b.lessonLabel==='unit')return 'Unit '+n;return String(n)}
 function bookInfoText(b){ensureBookDefaults(b);const parts=[];const cols=getFullColumns(b);parts.push(cols.length+'/'+b.totalLessons+'欄');if(b.currentLesson>0&&b.currentLesson<b.totalLessons)parts.push('進度至'+b.currentLesson);if(b.lessonFilter==='odd')parts.push('單課');if(b.lessonFilter==='even')parts.push('雙課');if(b.skipEvery>0)parts.push('跳每'+b.skipEvery+'課');if(b.startLesson>1)parts.push('從'+b.startLesson+'起');if(b.reviews.length)parts.push(b.reviews.length+'個複習');return parts.join(' · ')}
 
+function buildGridNames(students){const counts={};students.forEach(s=>{const eng=(s.engName||'').toLowerCase();if(eng)counts[eng]=(counts[eng]||0)+1});return students.map(s=>{if(!s.engName)return s.name;const eng=s.engName;if(counts[eng.toLowerCase()]>1&&s.name){return eng+'('+s.name.charAt(0)+')'}return eng})}
+
 // Theme
 function applyTheme(){document.documentElement.dataset.theme=state.darkMode?'dark':'';$('#darkModeBtn').textContent=state.darkMode?'☀️':'🌙'}
 $('#darkModeBtn').addEventListener('click',()=>{state.darkMode=!state.darkMode;applyTheme();saveState()});
@@ -390,7 +392,8 @@ cols.forEach(col=>{const markAll=el('span',{class:'mark-all-btn',onclick:e=>{e.s
 const colLabel=col.type==='review'?col.label:fmtLesson(b,col.num);
 grid.appendChild(el('div',{class:'grid-cell grid-header'+(col.type==='review'?' review-col':'')},el('span',{style:'font-weight:700'},colLabel),markAll))});
 const isHw=b.type==='homework';
-cls.students.forEach((s,i)=>{grid.appendChild(el('div',{class:'grid-cell grid-name-cell'},s.engName||s.name));
+const gridNames=buildGridNames(cls.students);
+cls.students.forEach((s,i)=>{grid.appendChild(el('div',{class:'grid-cell grid-name-cell'},gridNames[i]));
 cols.forEach(col=>{const st=getStatus(b.id,col.key,s.id);const mark=el('div',{class:'check-mark'},st==='done'?'✓':st==='partial'?'△':'');const cell=el('div',{class:'grid-cell check-cell'+(st==='done'?' done':st==='partial'?' partial':''),onclick:()=>{const ns=cycleStatus(b.id,col.key,s.id,isHw);setStatus(b.id,col.key,s.id,ns);cell.className='grid-cell check-cell'+(ns==='done'?' done':ns==='partial'?' partial':'');mark.textContent=ns==='done'?'✓':ns==='partial'?'△':'';saveState()}},mark);grid.appendChild(cell)})});
 wrapper.appendChild(grid);body.appendChild(wrapper);
 const total=cls.students.length*cols.length;const done=cls.students.reduce((sum,s)=>sum+cols.filter(c=>getStatus(b.id,c.key,s.id)==='done').length,0);const pct=total>0?Math.round(done/total*100):0;
