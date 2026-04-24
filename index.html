@@ -274,9 +274,9 @@ function setStatus(bid,l,sid,st){const k=recordKey(bid,l,sid);if(st==='done')sta
 function isDone(bid,l,sid){return state.records[recordKey(bid,l,sid)]===true}
 function setDone(bid,l,sid,d){setStatus(bid,l,sid,d?'done':'empty')}
 function cycleStatus(bid,l,sid,isHomework){const cur=getStatus(bid,l,sid);if(isHomework){if(cur==='empty')return 'partial';if(cur==='partial')return 'done';return 'empty'}return cur==='done'?'empty':'done'}
-function ensureBookDefaults(b){if(b.startLesson===undefined)b.startLesson=1;if(!b.lessonLabel)b.lessonLabel='#';if(b.currentLesson===undefined)b.currentLesson=0;if(!b.lessonFilter)b.lessonFilter='all';if(b.skipEvery===undefined)b.skipEvery=0;if(!b.reviews)b.reviews=[]}
+function ensureBookDefaults(b){if(b.startLesson===undefined)b.startLesson=1;if(!b.lessonLabel)b.lessonLabel='#';if(b.currentLesson===undefined)b.currentLesson=0;if(!b.lessonFilter)b.lessonFilter='all';if(b.skipEvery===undefined)b.skipEvery=0;if(!b.reviews)b.reviews=[];if(b.reviewStart===undefined)b.reviewStart=1}
 function getRequiredLessons(b){ensureBookDefaults(b);const start=b.startLesson||1;const end=b.currentLesson>0?Math.min(b.currentLesson,b.totalLessons):b.totalLessons;const lessons=[];for(let n=start;n<=end;n++){if(b.lessonFilter==='odd'&&n%2===0)continue;if(b.lessonFilter==='even'&&n%2===1)continue;if(b.skipEvery>0&&n%b.skipEvery===0)continue;lessons.push(n)}return lessons}
-function getFullColumns(b){ensureBookDefaults(b);const lessons=getRequiredLessons(b);const revSet=new Set(b.reviews.map(r=>r.after));const cols=[];let ri=1;lessons.forEach(n=>{cols.push({key:String(n),num:n,type:'lesson'});if(revSet.has(n)){cols.push({key:'r'+n,num:n,type:'review',label:'R'+ri});ri++}});return cols}
+function getFullColumns(b){ensureBookDefaults(b);const lessons=getRequiredLessons(b);const revSet=new Set(b.reviews.map(r=>r.after));const cols=[];let ri=b.reviewStart||1;lessons.forEach(n=>{cols.push({key:String(n),num:n,type:'lesson'});if(revSet.has(n)){cols.push({key:'r'+n,num:n,type:'review',label:'R'+ri});ri++}});return cols}
 function fmtLesson(b,n){ensureBookDefaults(b);if(b.lessonLabel==='lesson')return 'L'+n;if(b.lessonLabel==='unit')return 'U'+n;return String(n)}
 function fmtLessonFull(b,n){ensureBookDefaults(b);if(b.lessonLabel==='lesson')return 'Lesson '+n;if(b.lessonLabel==='unit')return 'Unit '+n;return String(n)}
 function bookInfoText(b){ensureBookDefaults(b);const parts=[];const cols=getFullColumns(b);parts.push(cols.length+'/'+b.totalLessons+'欄');if(b.currentLesson>0&&b.currentLesson<b.totalLessons)parts.push('進度至'+b.currentLesson);if(b.lessonFilter==='odd')parts.push('單課');if(b.lessonFilter==='even')parts.push('雙課');if(b.skipEvery>0)parts.push('跳每'+b.skipEvery+'課');if(b.startLesson>1)parts.push('從'+b.startLesson+'起');if(b.reviews.length)parts.push(b.reviews.length+'個複習');return parts.join(' · ')}
@@ -337,6 +337,10 @@ row3.appendChild(el('div',{},el('span',{class:'form-label'},'跳過每N課'),ski
 p.appendChild(row3);
 // reviews section
 p.appendChild(el('div',{style:'margin:12px 0 6px;font-size:13px;font-weight:600;color:var(--text-secondary)'},'📝 複習課（插入於某課之後）'));
+const revStartRow=el('div',{class:'form-row',style:'margin-bottom:8px'});
+const revStartInp=el('input',{type:'number',value:String(b.reviewStart||1),min:'1',style:'max-width:80px',onBlur:()=>{const v=parseInt(revStartInp.value,10)||1;b.reviewStart=v;saveState()}});
+revStartRow.appendChild(el('div',{},el('span',{class:'form-label'},'複習起始編號（R?）'),revStartInp));
+p.appendChild(revStartRow);
 const revList=el('div');
 function renderRevList(){revList.innerHTML='';(b.reviews||[]).forEach((r,i)=>{revList.appendChild(el('div',{style:'display:flex;align-items:center;gap:6px;margin-bottom:4px'},el('span',{style:'font-size:13px'},'第 '+r.after+' 課後'),el('button',{class:'btn btn-sm btn-danger',style:'padding:2px 8px;min-height:24px',onclick:()=>{b.reviews.splice(i,1);saveState();renderRevList()}},'✕')))})}
 renderRevList();p.appendChild(revList);
