@@ -122,6 +122,7 @@ textarea{resize:vertical;min-height:80px;line-height:1.6}
 .grid-cell{border-bottom:1px solid var(--border-color);border-right:1px solid var(--border-color);display:flex;align-items:center;justify-content:center;padding:4px;min-width:40px;min-height:40px;background:var(--bg-card)}
 .grid-header{background:var(--bg-hover);font-weight:600;position:sticky;top:0;z-index:2;font-size:12px;flex-direction:column;gap:2px}
 .grid-header .mark-all-btn{font-size:9px;padding:1px 4px;border-radius:3px;background:var(--accent);color:#fff;cursor:pointer}
+.grid-header.review-col{background:var(--warning-light)}
 .grid-name-cell{position:sticky;left:0;z-index:1;background:var(--bg-card);font-weight:500;justify-content:flex-start;padding-left:10px;min-width:90px;text-align:left;white-space:nowrap;font-size:13px}
 .grid-corner{position:sticky;left:0;top:0;z-index:3;background:var(--bg-hover);font-weight:700;min-width:90px}
 .check-cell{cursor:pointer;user-select:none;-webkit-user-select:none}
@@ -273,11 +274,12 @@ function setStatus(bid,l,sid,st){const k=recordKey(bid,l,sid);if(st==='done')sta
 function isDone(bid,l,sid){return state.records[recordKey(bid,l,sid)]===true}
 function setDone(bid,l,sid,d){setStatus(bid,l,sid,d?'done':'empty')}
 function cycleStatus(bid,l,sid,isHomework){const cur=getStatus(bid,l,sid);if(isHomework){if(cur==='empty')return 'partial';if(cur==='partial')return 'done';return 'empty'}return cur==='done'?'empty':'done'}
-function ensureBookDefaults(b){if(b.startLesson===undefined)b.startLesson=1;if(!b.lessonLabel)b.lessonLabel='#';if(b.currentLesson===undefined)b.currentLesson=0;if(!b.lessonFilter)b.lessonFilter='all';if(b.skipEvery===undefined)b.skipEvery=0}
+function ensureBookDefaults(b){if(b.startLesson===undefined)b.startLesson=1;if(!b.lessonLabel)b.lessonLabel='#';if(b.currentLesson===undefined)b.currentLesson=0;if(!b.lessonFilter)b.lessonFilter='all';if(b.skipEvery===undefined)b.skipEvery=0;if(!b.reviews)b.reviews=[]}
 function getRequiredLessons(b){ensureBookDefaults(b);const start=b.startLesson||1;const end=b.currentLesson>0?Math.min(b.currentLesson,b.totalLessons):b.totalLessons;const lessons=[];for(let n=start;n<=end;n++){if(b.lessonFilter==='odd'&&n%2===0)continue;if(b.lessonFilter==='even'&&n%2===1)continue;if(b.skipEvery>0&&n%b.skipEvery===0)continue;lessons.push(n)}return lessons}
+function getFullColumns(b){ensureBookDefaults(b);const lessons=getRequiredLessons(b);const revSet=new Set(b.reviews.map(r=>r.after));const cols=[];let ri=1;lessons.forEach(n=>{cols.push({key:String(n),num:n,type:'lesson'});if(revSet.has(n)){cols.push({key:'r'+n,num:n,type:'review',label:'R'+ri});ri++}});return cols}
 function fmtLesson(b,n){ensureBookDefaults(b);if(b.lessonLabel==='lesson')return 'L'+n;if(b.lessonLabel==='unit')return 'U'+n;return String(n)}
 function fmtLessonFull(b,n){ensureBookDefaults(b);if(b.lessonLabel==='lesson')return 'Lesson '+n;if(b.lessonLabel==='unit')return 'Unit '+n;return String(n)}
-function bookInfoText(b){ensureBookDefaults(b);const parts=[];const req=getRequiredLessons(b);parts.push(req.length+'/'+b.totalLessons+'課');if(b.currentLesson>0&&b.currentLesson<b.totalLessons)parts.push('進度至'+b.currentLesson);if(b.lessonFilter==='odd')parts.push('單課');if(b.lessonFilter==='even')parts.push('雙課');if(b.skipEvery>0)parts.push('跳每'+b.skipEvery+'課');if(b.startLesson>1)parts.push('從'+b.startLesson+'起');return parts.join(' · ')}
+function bookInfoText(b){ensureBookDefaults(b);const parts=[];const cols=getFullColumns(b);parts.push(cols.length+'/'+b.totalLessons+'欄');if(b.currentLesson>0&&b.currentLesson<b.totalLessons)parts.push('進度至'+b.currentLesson);if(b.lessonFilter==='odd')parts.push('單課');if(b.lessonFilter==='even')parts.push('雙課');if(b.skipEvery>0)parts.push('跳每'+b.skipEvery+'課');if(b.startLesson>1)parts.push('從'+b.startLesson+'起');if(b.reviews.length)parts.push(b.reviews.length+'個複習');return parts.join(' · ')}
 
 // Theme
 function applyTheme(){document.documentElement.dataset.theme=state.darkMode?'dark':'';$('#darkModeBtn').textContent=state.darkMode?'☀️':'🌙'}
@@ -333,7 +335,18 @@ row3.appendChild(el('div',{},el('span',{class:'form-label'},'最新課數'),curI
 row3.appendChild(el('div',{},el('span',{class:'form-label'},'單/雙課'),filterSel));
 row3.appendChild(el('div',{},el('span',{class:'form-label'},'跳過每N課'),skipInp));
 p.appendChild(row3);
-p.appendChild(el('button',{class:'btn btn-primary btn-sm',onclick:()=>{const nm=nameInp.value.trim();if(!nm)return showToast('名稱不可空白');const tt=parseInt(totalInp.value,10);if(!tt||tt<1)return showToast('總課數無效');b.name=nm;b.lessonLabel=lblSel.value;b.startLesson=parseInt(startInp.value,10)||1;b.totalLessons=tt;b.currentLesson=parseInt(curInp.value,10)||0;b.lessonFilter=filterSel.value;b.skipEvery=parseInt(skipInp.value,10)||0;saveState();renderAll();showToast('已儲存')}},'儲存'));
+// reviews section
+p.appendChild(el('div',{style:'margin:12px 0 6px;font-size:13px;font-weight:600;color:var(--text-secondary)'},'📝 複習課（插入於某課之後）'));
+const revList=el('div');
+function renderRevList(){revList.innerHTML='';(b.reviews||[]).forEach((r,i)=>{revList.appendChild(el('div',{style:'display:flex;align-items:center;gap:6px;margin-bottom:4px'},el('span',{style:'font-size:13px'},'第 '+r.after+' 課後'),el('button',{class:'btn btn-sm btn-danger',style:'padding:2px 8px;min-height:24px',onclick:()=>{b.reviews.splice(i,1);saveState();renderRevList()}},'✕')))})}
+renderRevList();p.appendChild(revList);
+const revRow=el('div',{class:'form-row',style:'margin-top:6px'});
+const revInp=el('input',{type:'number',placeholder:'在第 N 課後插入複習',min:'1'});
+revRow.appendChild(revInp);
+revRow.appendChild(el('button',{class:'btn btn-sm btn-primary',onclick:()=>{const v=parseInt(revInp.value,10);if(!v||v<1)return showToast('請輸入課數');if(b.reviews.some(r=>r.after===v))return showToast('已有此複習');b.reviews.push({after:v});b.reviews.sort((a,c)=>a.after-c.after);revInp.value='';saveState();renderRevList()}},'新增複習'));
+p.appendChild(revRow);
+
+p.appendChild(el('button',{class:'btn btn-primary btn-sm',style:'margin-top:10px',onclick:()=>{const nm=nameInp.value.trim();if(!nm)return showToast('名稱不可空白');const tt=parseInt(totalInp.value,10);if(!tt||tt<1)return showToast('總課數無效');b.name=nm;b.lessonLabel=lblSel.value;b.startLesson=parseInt(startInp.value,10)||1;b.totalLessons=tt;b.currentLesson=parseInt(curInp.value,10)||0;b.lessonFilter=filterSel.value;b.skipEvery=parseInt(skipInp.value,10)||0;saveState();renderAll();showToast('已儲存')}},'儲存'));
 return p}
 
 $('#addBookBtn').addEventListener('click',()=>{const cls=getActiveClass();if(!cls)return showToast('請先新增班級');const name=$('#newBookName').value.trim();const lessons=parseInt($('#newBookLessons').value,10);const type=$('#newBookType').value;if(!name)return showToast('請輸入名稱');if(!lessons||lessons<1)return showToast('請輸入總課數');
@@ -346,14 +359,13 @@ if(!cls){area.appendChild(emptyState('🏫','請至「設定」新增班級'));r
 if(!cls.students.length){area.appendChild(emptyState('👥','請至「設定」新增學生'));return}
 const books=getBooksForActiveClass();
 if(!books.length){area.appendChild(emptyState('📚','請至「設定」新增教材'));return}
-books.forEach(b=>{ensureBookDefaults(b);const required=getRequiredLessons(b);const isCollapsed=!!state.collapsed[b.id];
+books.forEach(b=>{ensureBookDefaults(b);const cols=getFullColumns(b);const isCollapsed=!!state.collapsed[b.id];
 const section=el('div',{class:'book-section'+(isCollapsed?' collapsed':'')});
 const typeBadge=el('span',{class:'badge '+(b.type==='recitation'?'badge-recitation':''),style:'flex-shrink:0'},b.type==='recitation'?'背誦':'功課');
 const arrow=el('span',{class:'book-section-arrow'},'▼');
 const header=el('div',{class:'book-section-header',onclick:()=>{section.classList.toggle('collapsed');state.collapsed[b.id]=section.classList.contains('collapsed');saveState()}},typeBadge,el('span',{class:'book-section-title'},b.name),el('span',{class:'book-section-meta'},bookInfoText(b)),arrow);
 section.appendChild(header);
 const body=el('div',{class:'book-section-body'});
-// current lesson bar
 const curBar=el('div',{class:'cur-lesson-bar'});
 curBar.appendChild(el('span',{style:'font-weight:600;color:var(--text-secondary)'},'最新課數'));
 const curVal=el('span',{class:'cur-val'},String(b.currentLesson>0?b.currentLesson:b.totalLessons));
@@ -362,18 +374,18 @@ curBar.appendChild(curVal);
 curBar.appendChild(el('button',{class:'btn btn-sm btn-outline',onclick:e=>{e.stopPropagation();const cur=b.currentLesson>0?b.currentLesson:b.totalLessons;if(cur>=b.totalLessons){b.currentLesson=0;saveState();renderCheckin();return}b.currentLesson=cur+1;if(b.currentLesson>=b.totalLessons)b.currentLesson=0;saveState();renderCheckin()}},'＋'));
 curBar.appendChild(el('span',{style:'color:var(--text-muted)'},'/ '+b.totalLessons+(b.currentLesson>0?'':'（全部）')));
 body.appendChild(curBar);
-if(!required.length){body.appendChild(el('div',{class:'empty-state-text',style:'padding:16px;text-align:center'},'目前無需完成的課數'));section.appendChild(body);area.appendChild(section);return}
-// grid
+if(!cols.length){body.appendChild(el('div',{class:'empty-state-text',style:'padding:16px;text-align:center'},'目前無需完成的課數'));section.appendChild(body);area.appendChild(section);return}
 const wrapper=el('div',{class:'grid-wrapper'});const grid=el('div',{class:'check-grid'});
-grid.style.gridTemplateColumns='minmax(90px,1.2fr) repeat('+required.length+',minmax(40px,1fr))';
+grid.style.gridTemplateColumns='minmax(90px,1.2fr) repeat('+cols.length+',minmax(40px,1fr))';
 grid.appendChild(el('div',{class:'grid-cell grid-corner'},'姓名'));
-required.forEach(n=>{const markAll=el('span',{class:'mark-all-btn',onclick:e=>{e.stopPropagation();const allDone=cls.students.every(s=>getStatus(b.id,n,s.id)==='done');cls.students.forEach(s=>setStatus(b.id,n,s.id,allDone?'empty':'done'));saveState();renderCheckin()}},'全');
-grid.appendChild(el('div',{class:'grid-cell grid-header'},el('span',{style:'font-weight:700'},fmtLesson(b,n)),markAll))});
+cols.forEach(col=>{const markAll=el('span',{class:'mark-all-btn',onclick:e=>{e.stopPropagation();const allDone=cls.students.every(s=>getStatus(b.id,col.key,s.id)==='done');cls.students.forEach(s=>setStatus(b.id,col.key,s.id,allDone?'empty':'done'));saveState();renderCheckin()}},'全');
+const colLabel=col.type==='review'?col.label:fmtLesson(b,col.num);
+grid.appendChild(el('div',{class:'grid-cell grid-header'+(col.type==='review'?' review-col':'')},el('span',{style:'font-weight:700'},colLabel),markAll))});
 const isHw=b.type==='homework';
 cls.students.forEach((s,i)=>{grid.appendChild(el('div',{class:'grid-cell grid-name-cell'},s.name));
-required.forEach(n=>{const st=getStatus(b.id,n,s.id);const mark=el('div',{class:'check-mark'},st==='done'?'✓':st==='partial'?'△':'');const cell=el('div',{class:'grid-cell check-cell'+(st==='done'?' done':st==='partial'?' partial':''),onclick:()=>{const ns=cycleStatus(b.id,n,s.id,isHw);setStatus(b.id,n,s.id,ns);cell.className='grid-cell check-cell'+(ns==='done'?' done':ns==='partial'?' partial':'');mark.textContent=ns==='done'?'✓':ns==='partial'?'△':'';saveState()}},mark);grid.appendChild(cell)})});
+cols.forEach(col=>{const st=getStatus(b.id,col.key,s.id);const mark=el('div',{class:'check-mark'},st==='done'?'✓':st==='partial'?'△':'');const cell=el('div',{class:'grid-cell check-cell'+(st==='done'?' done':st==='partial'?' partial':''),onclick:()=>{const ns=cycleStatus(b.id,col.key,s.id,isHw);setStatus(b.id,col.key,s.id,ns);cell.className='grid-cell check-cell'+(ns==='done'?' done':ns==='partial'?' partial':'');mark.textContent=ns==='done'?'✓':ns==='partial'?'△':'';saveState()}},mark);grid.appendChild(cell)})});
 wrapper.appendChild(grid);body.appendChild(wrapper);
-const total=cls.students.length*required.length;const done=cls.students.reduce((sum,s)=>sum+required.filter(n=>isDone(b.id,n,s.id)).length,0);const pct=total>0?Math.round(done/total*100):0;
+const total=cls.students.length*cols.length;const done=cls.students.reduce((sum,s)=>sum+cols.filter(c=>getStatus(b.id,c.key,s.id)==='done').length,0);const pct=total>0?Math.round(done/total*100):0;
 body.appendChild(el('div',{style:'margin-top:8px;text-align:center;font-size:12px;color:var(--text-muted)'},'完成 '+done+'/'+total+'（'+pct+'%）'));
 section.appendChild(body);area.appendChild(section)})}
 
@@ -381,7 +393,7 @@ function emptyState(icon,text){return el('div',{class:'empty-state'},el('div',{c
 
 // ============ Summary ============
 $('#showAllStudents').addEventListener('change',renderSummary);
-function computeMissing(b,students){const req=getRequiredLessons(b);return students.map(s=>{const missing=req.filter(n=>getStatus(b.id,n,s.id)==='empty');const partial=req.filter(n=>getStatus(b.id,n,s.id)==='partial');return{student:s,missing,partial}}).sort((a,c)=>(c.missing.length+c.partial.length)-(a.missing.length+a.partial.length))}
+function computeMissing(b,students){const cols=getFullColumns(b);return students.map(s=>{const missing=cols.filter(c=>getStatus(b.id,c.key,s.id)==='empty');const partial=cols.filter(c=>getStatus(b.id,c.key,s.id)==='partial');return{student:s,missing,partial}}).sort((a,c)=>(c.missing.length+c.partial.length)-(a.missing.length+a.partial.length))}
 function severityClass(c){return c===0?'severity-low':c<=2?'severity-mid':'severity-high'}
 function renderSummary(){const area=$('#summaryArea');area.innerHTML='';const cls=getActiveClass();
 if(!cls){area.appendChild(emptyState('🏫','請先新增班級'));return}
@@ -390,17 +402,17 @@ const showAll=$('#showAllStudents').checked;const books=getBooksForActiveClass()
 if(!books.length){area.appendChild(emptyState('📚','尚無教材'));return}
 [{type:'homework',title:'📖 功課未完成',ok:'全部完成！🎉'},{type:'recitation',title:'🎤 背誦未完成',ok:'全部完成！🎉'}].forEach(sec=>{const sb=books.filter(b=>b.type===sec.type);if(!sb.length)return;
 const card=el('div',{class:'card'});card.appendChild(el('h3',{style:'font-size:15px;font-weight:600;margin:0 0 8px'},sec.title));
-sb.forEach(b=>{ensureBookDefaults(b);const req=getRequiredLessons(b);const rows=computeMissing(b,cls.students);const filtered=showAll?rows:rows.filter(r=>r.missing.length>0||r.partial.length>0);
+sb.forEach(b=>{ensureBookDefaults(b);const cols=getFullColumns(b);const rows=computeMissing(b,cls.students);const filtered=showAll?rows:rows.filter(r=>r.missing.length>0||r.partial.length>0);
 const isHw=b.type==='homework';
-card.appendChild(el('div',{style:'font-size:14px;font-weight:600;margin:12px 0 6px'},b.name,el('span',{class:'list-item-meta',style:'margin-left:8px;font-weight:normal'},req.length+'/'+b.totalLessons+'課')));
+card.appendChild(el('div',{style:'font-size:14px;font-weight:600;margin:12px 0 6px'},b.name,el('span',{class:'list-item-meta',style:'margin-left:8px;font-weight:normal'},cols.length+'欄')));
 if(!filtered.length){card.appendChild(el('div',{class:'summary-empty'},sec.ok));return}
 const headRow=el('tr',{},el('th',{},'姓名'),el('th',{},'未完成課次'));
 if(isHw)headRow.appendChild(el('th',{},'未訂正課次'));
 headRow.appendChild(el('th',{class:'col-count'},'未完成'));
 if(isHw)headRow.appendChild(el('th',{class:'col-count'},'未訂正'));
 const table=el('table',{class:'summary-table'});table.appendChild(el('thead',{},headRow));
-const tbody=el('tbody');filtered.forEach(r=>{const total=r.missing.length+r.partial.length;const sev=severityClass(total);const tr=el('tr',{},el('td',{},r.student.name),el('td',{style:'font-size:12px'},r.missing.length===0?'—':r.missing.map(n=>fmtLessonFull(b,n)).join('、')));
-if(isHw)tr.appendChild(el('td',{style:'font-size:12px;color:var(--warning)'},r.partial.length===0?'—':r.partial.map(n=>fmtLessonFull(b,n)).join('、')));
+const tbody=el('tbody');filtered.forEach(r=>{const total=r.missing.length+r.partial.length;const sev=severityClass(total);const tr=el('tr',{},el('td',{},r.student.name),el('td',{style:'font-size:12px'},r.missing.length===0?'—':r.missing.map(c=>c.type==='review'?c.label:fmtLessonFull(b,c.num)).join('、')));
+if(isHw)tr.appendChild(el('td',{style:'font-size:12px;color:var(--warning)'},r.partial.length===0?'—':r.partial.map(c=>c.type==='review'?c.label:fmtLessonFull(b,c.num)).join('、')));
 tr.appendChild(el('td',{class:'col-count '+sev},String(r.missing.length)));
 if(isHw)tr.appendChild(el('td',{class:'col-count severity-mid'},String(r.partial.length)));
 tbody.appendChild(tr)});
@@ -409,7 +421,7 @@ table.appendChild(tbody);card.appendChild(table)});area.appendChild(card)})}
 // ============ Export ============
 function renderPdfBookSelector(){const cont=$('#pdfBookSelector');cont.innerHTML='';const books=getBooksForActiveClass();
 if(!books.length){cont.appendChild(el('div',{style:'font-size:13px;color:var(--text-muted)'},'尚無教材'));return}
-books.forEach(b=>{ensureBookDefaults(b);const req=getRequiredLessons(b);cont.appendChild(el('label',{style:'display:flex;align-items:center;gap:8px;padding:8px 0;font-size:14px;border-bottom:1px solid var(--border-color);cursor:pointer'},el('input',{type:'checkbox',checked:'checked',class:'pdf-book-cb',dataset:{bookId:b.id},style:'width:auto;flex-shrink:0'}),el('span',{class:'badge '+(b.type==='recitation'?'badge-recitation':'')},b.type==='recitation'?'背誦':'功課'),el('span',{},b.name),el('span',{style:'font-size:11px;color:var(--text-muted);margin-left:auto'},req.length+'課')))})}
+books.forEach(b=>{ensureBookDefaults(b);const cols=getFullColumns(b);cont.appendChild(el('label',{style:'display:flex;align-items:center;gap:8px;padding:8px 0;font-size:14px;border-bottom:1px solid var(--border-color);cursor:pointer'},el('input',{type:'checkbox',checked:'checked',class:'pdf-book-cb',dataset:{bookId:b.id},style:'width:auto;flex-shrink:0'}),el('span',{class:'badge '+(b.type==='recitation'?'badge-recitation':'')},b.type==='recitation'?'背誦':'功課'),el('span',{},b.name),el('span',{style:'font-size:11px;color:var(--text-muted);margin-left:auto'},cols.length+'欄')))})}
 $('#pdfSelectAll').addEventListener('click',()=>$$('.pdf-book-cb').forEach(c=>c.checked=true));
 $('#pdfSelectNone').addEventListener('click',()=>$$('.pdf-book-cb').forEach(c=>c.checked=false));
 function getSelectedPdfBookIds(){return[...$$('.pdf-book-cb')].filter(c=>c.checked).map(c=>c.dataset.bookId)}
@@ -420,17 +432,17 @@ const ds=new Date().toLocaleDateString('zh-TW',{year:'numeric',month:'2-digit',d
 area.appendChild(el('h1',{},cls.name+' 功課背誦進度表'));area.appendChild(el('div',{class:'pdf-meta'},'列印日期：'+ds+'　|　學生人數：'+cls.students.length));
 ['homework','recitation'].forEach(type=>{const tb=books.filter(b=>b.type===type);if(!tb.length)return;
 area.appendChild(el('h2',{},type==='homework'?'📖 功課':'🎤 背誦'));
-tb.forEach(b=>{ensureBookDefaults(b);const req=getRequiredLessons(b);const info=bookInfoText(b);
+tb.forEach(b=>{ensureBookDefaults(b);const cols=getFullColumns(b);const info=bookInfoText(b);
 area.appendChild(el('div',{style:'font-size:13px;font-weight:700;margin:10px 0 4px'},b.name+'（'+info+'）'));
-if(!req.length){area.appendChild(el('p',{style:'font-size:12px;color:#888'},'目前無需完成'));return}
+if(!cols.length){area.appendChild(el('p',{style:'font-size:12px;color:#888'},'目前無需完成'));return}
 const pdfIsHw=b.type==='homework';
 const table=el('table');const headRow=el('tr',{},el('th',{style:'width:80px;text-align:left'},'姓名'));
-req.forEach(n=>headRow.appendChild(el('th',{},fmtLesson(b,n))));
+cols.forEach(c=>headRow.appendChild(el('th',{},c.type==='review'?c.label:fmtLesson(b,c.num))));
 headRow.appendChild(el('th',{style:'width:50px'},'未完成'));
 if(pdfIsHw)headRow.appendChild(el('th',{style:'width:50px'},'未訂正'));
 table.appendChild(el('thead',{},headRow));
 const tbody=el('tbody');cls.students.forEach(s=>{let miss=0,part=0;const row=el('tr',{},el('td',{class:'name'},s.name));
-req.forEach(n=>{const st=getStatus(b.id,n,s.id);if(st==='done')row.appendChild(el('td',{class:'pdf-check'},'✓'));else if(st==='partial'){part++;row.appendChild(el('td',{class:'pdf-partial'},'△'))}else{miss++;row.appendChild(el('td',{class:'pdf-miss'},''))}});
+cols.forEach(c=>{const st=getStatus(b.id,c.key,s.id);if(st==='done')row.appendChild(el('td',{class:'pdf-check'},'✓'));else if(st==='partial'){part++;row.appendChild(el('td',{class:'pdf-partial'},'△'))}else{miss++;row.appendChild(el('td',{class:'pdf-miss'},''))}});
 row.appendChild(el('td',{class:miss>0?'pdf-miss':'',style:'font-weight:700'},String(miss)));
 if(pdfIsHw)row.appendChild(el('td',{class:part>0?'pdf-partial':'',style:'font-weight:700'},String(part)));
 tbody.appendChild(row)});
